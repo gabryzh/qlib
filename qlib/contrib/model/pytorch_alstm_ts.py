@@ -17,7 +17,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from .pytorch_utils import count_parameters
+from .pytorch_utils import count_parameters, get_device
 from ...model.base import Model
 from ...data.dataset import DatasetH
 from ...data.dataset.handler import DataHandlerLP
@@ -36,8 +36,8 @@ class ALSTM(Model):
         the evaluation metric used in early stop
     optimizer : str
         optimizer name
-    GPU : int
-        the GPU ID used for training
+    device : str
+        the device used for training
     """
 
     def __init__(
@@ -54,7 +54,7 @@ class ALSTM(Model):
         loss="mse",
         optimizer="adam",
         n_jobs=10,
-        GPU=0,
+        device="auto",
         seed=None,
         **kwargs,
     ):
@@ -74,7 +74,7 @@ class ALSTM(Model):
         self.early_stop = early_stop
         self.optimizer = optimizer.lower()
         self.loss = loss
-        self.device = torch.device("cuda:%d" % (GPU) if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.n_jobs = n_jobs
         self.seed = seed
 

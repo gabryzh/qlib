@@ -16,7 +16,7 @@ from ...log import get_module_logger
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from .pytorch_utils import count_parameters
+from .pytorch_utils import count_parameters, get_device
 from ...model.base import Model
 from ...data.dataset import DatasetH
 from ...data.dataset.handler import DataHandlerLP
@@ -37,8 +37,8 @@ class HIST(Model):
         the evaluation metric used in early stop
     optimizer : str
         optimizer name
-    GPU : str
-        the GPU ID(s) used for training
+    device : str
+        the device used for training
     """
 
     def __init__(
@@ -57,7 +57,7 @@ class HIST(Model):
         stock2concept=None,
         stock_index=None,
         optimizer="adam",
-        GPU=0,
+        device="auto",
         seed=None,
         **kwargs,
     ):
@@ -80,7 +80,7 @@ class HIST(Model):
         self.model_path = model_path
         self.stock2concept = stock2concept
         self.stock_index = stock_index
-        self.device = torch.device("cuda:%d" % (GPU) if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.seed = seed
 
         self.logger.info(
@@ -99,7 +99,7 @@ class HIST(Model):
             "\nmodel_path : {}"
             "\nstock2concept : {}"
             "\nstock_index : {}"
-            "\nuse_GPU : {}"
+            "\ndevice : {}"
             "\nseed : {}".format(
                 d_feat,
                 hidden_size,
@@ -115,7 +115,7 @@ class HIST(Model):
                 model_path,
                 stock2concept,
                 stock_index,
-                GPU,
+                self.device,
                 seed,
             )
         )

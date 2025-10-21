@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Function
-from qlib.contrib.model.pytorch_utils import count_parameters
+from qlib.contrib.model.pytorch_utils import count_parameters, get_device
 from qlib.data.dataset import DatasetH
 from qlib.data.dataset.handler import DataHandlerLP
 from qlib.log import get_module_logger
@@ -31,8 +31,8 @@ class ADARNN(Model):
         the evaluation metric used in early stop
     optimizer : str
         optimizer name
-    GPU : str
-        the GPU ID(s) used for training
+    device : str
+        the device used for training
     """
 
     def __init__(
@@ -54,14 +54,13 @@ class ADARNN(Model):
         loss="mse",
         optimizer="adam",
         n_splits=2,
-        GPU=0,
+        device="auto",
         seed=None,
         **_,
     ):
         # Set logger.
         self.logger = get_module_logger("ADARNN")
         self.logger.info("ADARNN pytorch version...")
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(GPU)
 
         # set hyper-parameters.
         self.d_feat = d_feat
@@ -81,7 +80,7 @@ class ADARNN(Model):
         self.optimizer = optimizer.lower()
         self.loss = loss
         self.n_splits = n_splits
-        self.device = torch.device("cuda:%d" % GPU if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.seed = seed
 
         self.logger.info(
@@ -97,7 +96,7 @@ class ADARNN(Model):
             "\nearly_stop : {}"
             "\noptimizer : {}"
             "\nloss_type : {}"
-            "\nvisible_GPU : {}"
+            "\ndevice : {}"
             "\nuse_GPU : {}"
             "\nseed : {}".format(
                 d_feat,
@@ -111,7 +110,7 @@ class ADARNN(Model):
                 early_stop,
                 optimizer.lower(),
                 loss,
-                GPU,
+                self.device,
                 self.use_gpu,
                 seed,
             )

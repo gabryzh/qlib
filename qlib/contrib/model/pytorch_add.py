@@ -17,7 +17,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from qlib.contrib.model.pytorch_gru import GRUModel
 from qlib.contrib.model.pytorch_lstm import LSTMModel
-from qlib.contrib.model.pytorch_utils import count_parameters
+from qlib.contrib.model.pytorch_utils import count_parameters, get_device
 from qlib.data.dataset import DatasetH
 from qlib.data.dataset.handler import DataHandlerLP
 from qlib.log import get_module_logger
@@ -39,8 +39,8 @@ class ADD(Model):
          the evaluation metric used in early stop
      optimizer : str
          optimizer name
-     GPU : int
-         the GPU ID used for training
+     device : str
+         the device used for training
     """
 
     def __init__(
@@ -61,7 +61,7 @@ class ADD(Model):
         gamma=0.1,
         gamma_clip=0.4,
         mu=0.05,
-        GPU=0,
+        device="auto",
         seed=None,
         **kwargs,
     ):
@@ -83,7 +83,7 @@ class ADD(Model):
         self.optimizer = optimizer.lower()
         self.base_model = base_model
         self.model_path = model_path
-        self.device = torch.device("cuda:%d" % (GPU) if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.seed = seed
 
         self.gamma = gamma
