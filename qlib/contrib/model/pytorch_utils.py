@@ -1,7 +1,34 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import torch
 import torch.nn as nn
+
+
+def get_device(device="auto"):
+    """
+    Get the device for training and inference.
+
+    Parameters
+    ----------
+    device : str
+        The device to use.
+        If device is "auto", it will use the first available device from CUDA, MPS, and CPU.
+
+    Returns
+    -------
+    torch.device
+    """
+    if device == "auto":
+        # check if MPS is available
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            device = "mps"
+        # If not MPS, check if CUDA is available
+        elif hasattr(torch.cuda, "is_available") and torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+    return torch.device(device)
 
 
 def count_parameters(models_or_parameters, unit="m"):

@@ -17,7 +17,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from .pytorch_utils import count_parameters
+from .pytorch_utils import count_parameters, get_device
 from ...model.base import Model
 from ...data.dataset import DatasetH
 from ...data.dataset.handler import DataHandlerLP
@@ -49,8 +49,9 @@ class DNNModelPytorch(Model):
         learning rate
     optimizer : str
         optimizer name
-    GPU : int
-        the GPU ID used for training
+    device : str
+        the device used for training.
+        - If `device` is "auto", it will use the first available device from CUDA, MPS, and CPU.
     """
 
     def __init__(
@@ -62,7 +63,7 @@ class DNNModelPytorch(Model):
         eval_steps=20,
         optimizer="gd",
         loss="mse",
-        GPU=0,
+        device="auto",
         seed=None,
         weight_decay=0.0,
         data_parall=False,
@@ -89,10 +90,7 @@ class DNNModelPytorch(Model):
         self.eval_steps = eval_steps
         self.optimizer = optimizer.lower()
         self.loss_type = loss
-        if isinstance(GPU, str):
-            self.device = torch.device(GPU)
-        else:
-            self.device = torch.device("cuda:%d" % (GPU) if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.seed = seed
         self.weight_decay = weight_decay
         self.data_parall = data_parall
