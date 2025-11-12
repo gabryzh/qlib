@@ -37,11 +37,12 @@ from .ops import Operators  # pylint: disable=W0611  # noqa: F401
 
 
 class QlibCacheException(RuntimeError):
+    """Qlib 缓存异常类"""
     pass
 
 
 class MemCacheUnit(abc.ABC):
-    """Memory Cache Unit."""
+    """内存缓存单元的基类"""
 
     def __init__(self, *args, **kwargs):
         self.size_limit = kwargs.pop("size_limit", 0)
@@ -49,18 +50,18 @@ class MemCacheUnit(abc.ABC):
         self.od = OrderedDict()
 
     def __setitem__(self, key, value):
-        # TODO: thread safe?__setitem__ failure might cause inconsistent size?
+        # TODO: 线程安全？__setitem__ 失败可能会导致大小不一致？
 
-        # precalculate the size after od.__setitem__
+        # 预计算 od.__setitem__ 之后的大小
         self._adjust_size(key, value)
 
         self.od.__setitem__(key, value)
 
-        # move the key to end,make it latest
+        # 将键移动到末尾，使其成为最新的
         self.od.move_to_end(key)
 
         if self.limited:
-            # pop the oldest items beyond size limit
+            # 弹出超出大小限制的最旧项目
             while self._size > self.size_limit:
                 self.popitem(last=False)
 
@@ -83,7 +84,7 @@ class MemCacheUnit(abc.ABC):
 
     @property
     def limited(self):
-        """whether memory cache is limited"""
+        """内存缓存是否受限"""
         return self.size_limit > 0
 
     @property
@@ -118,6 +119,7 @@ class MemCacheUnit(abc.ABC):
 
 
 class MemCacheLengthUnit(MemCacheUnit):
+    """基于长度限制的内存缓存单元"""
     def __init__(self, size_limit=0):
         super().__init__(size_limit=size_limit)
 
@@ -126,6 +128,7 @@ class MemCacheLengthUnit(MemCacheUnit):
 
 
 class MemCacheSizeofUnit(MemCacheUnit):
+    """基于内存大小（sizeof）限制的内存缓存单元"""
     def __init__(self, size_limit=0):
         super().__init__(size_limit=size_limit)
 
@@ -134,17 +137,16 @@ class MemCacheSizeofUnit(MemCacheUnit):
 
 
 class MemCache:
-    """Memory cache."""
+    """内存缓存"""
 
     def __init__(self, mem_cache_size_limit=None, limit_type="length"):
         """
-
-        Parameters
+        参数
         ----------
         mem_cache_size_limit:
-            cache max size.
+            缓存最大大小。
         limit_type:
-            length or sizeof; length(call fun: len), size(call fun: sys.getsizeof).
+            'length' 或 'sizeof'；'length'（调用 len()），'sizeof'（调用 sys.getsizeof()）。
         """
 
         size_limit = C.mem_cache_size_limit if mem_cache_size_limit is None else mem_cache_size_limit
@@ -155,7 +157,7 @@ class MemCache:
         elif limit_type == "sizeof":
             klass = MemCacheSizeofUnit
         else:
-            raise ValueError(f"limit_type must be length or sizeof, your limit_type is {limit_type}")
+            raise ValueError(f"limit_type 必须是 'length' 或 'sizeof'，但你提供的是 {limit_type}")
 
         self.__calendar_mem_cache = klass(size_limit)
         self.__instrument_mem_cache = klass(size_limit)
@@ -169,7 +171,7 @@ class MemCache:
         elif key == "f":
             return self.__feature_mem_cache
         else:
-            raise KeyError("Unknown memcache unit")
+            raise KeyError("未知的内存缓存单元")
 
     def clear(self):
         self.__calendar_mem_cache.clear()
@@ -178,25 +180,26 @@ class MemCache:
 
 
 class MemCacheExpire:
+    """内存缓存过期管理"""
     CACHE_EXPIRE = C.mem_cache_expire
 
     @staticmethod
     def set_cache(mem_cache, key, value):
-        """set cache
+        """设置缓存
 
-        :param mem_cache: MemCache attribute('c'/'i'/'f').
-        :param key: cache key.
-        :param value: cache value.
+        :param mem_cache: MemCache 属性（'c'/'i'/'f'）。
+        :param key: 缓存键。
+        :param value: 缓存值。
         """
         mem_cache[key] = value, time.time()
 
     @staticmethod
     def get_cache(mem_cache, key):
-        """get mem cache
+        """获取内存缓存
 
-        :param mem_cache: MemCache attribute('c'/'i'/'f').
-        :param key: cache key.
-        :return: cache value; if cache not exist, return None.
+        :param mem_cache: MemCache 属性（'c'/'i'/'f'）。
+        :param key: 缓存键。
+        :return: 缓存值；如果缓存不存在，则返回 None。
         """
         value = None
         expire = False
@@ -207,6 +210,7 @@ class MemCacheExpire:
 
 
 class CacheUtils:
+    """缓存工具类"""
     LOCK_ID = "QLIB"
 
     @staticmethod
@@ -215,12 +219,14 @@ class CacheUtils:
 
     @staticmethod
     def reset_lock():
+        """重置 Redis 锁"""
         r = get_redis_connection()
         redis_lock.reset_all(r)
 
     @staticmethod
     def visit(cache_path: Union[str, Path]):
-        # FIXME: Because read_lock was canceled when reading the cache, multiple processes may have read and write exceptions here
+        """记录缓存访问信息"""
+        # FIXME: 因为读取缓存时取消了读锁，多个进程在这里可能会出现读写异常
         try:
             cache_path = Path(cache_path)
             meta_path = cache_path.with_suffix(".meta")
@@ -231,34 +237,36 @@ class CacheUtils:
                     d["meta"]["last_visit"] = str(time.time())
                     d["meta"]["visits"] = d["meta"]["visits"] + 1
                 except KeyError as key_e:
-                    raise KeyError("Unknown meta keyword") from key_e
+                    raise KeyError("未知的 meta 关键字") from key_e
                 pickle.dump(d, f, protocol=C.dump_protocol_version)
         except Exception as e:
-            get_module_logger("CacheUtils").warning(f"visit {cache_path} cache error: {e}")
+            get_module_logger("CacheUtils").warning(f"访问 {cache_path} 缓存时出错: {e}")
 
     @staticmethod
     def acquire(lock, lock_name):
+        """获取锁"""
         try:
             lock.acquire()
         except redis_lock.AlreadyAcquired as lock_acquired:
             raise QlibCacheException(
-                f"""It sees the key(lock:{repr(lock_name)[1:-1]}-wlock) of the redis lock has existed in your redis db now.
-                    You can use the following command to clear your redis keys and rerun your commands:
+                f"""看起来 redis 锁的键 (lock:{repr(lock_name)[1:-1]}-wlock) 已经存在于你的 redis 数据库中。
+                    你可以使用以下命令清除你的 redis 键并重新运行你的命令：
                     $ redis-cli
                     > select {C.redis_task_db}
                     > del "lock:{repr(lock_name)[1:-1]}-wlock"
                     > quit
-                    If the issue is not resolved, use "keys *" to find if multiple keys exist. If so, try using "flushall" to clear all the keys.
+                    如果问题仍未解决，请使用 "keys *" 查找是否存在多个键。如果是，请尝试使用 "flushall" 清除所有键。
                 """
             ) from lock_acquired
 
     @staticmethod
     @contextlib.contextmanager
     def reader_lock(redis_t, lock_name: str):
+        """读锁上下文管理器"""
         current_cache_rlock = redis_lock.Lock(redis_t, f"{lock_name}-rlock")
         current_cache_wlock = redis_lock.Lock(redis_t, f"{lock_name}-wlock")
         lock_reader = f"{lock_name}-reader"
-        # make sure only one reader is entering
+        # 确保只有一个读进程进入
         current_cache_rlock.acquire(timeout=60)
         try:
             current_cache_readers = redis_t.get(lock_reader)
@@ -270,7 +278,7 @@ class CacheUtils:
         try:
             yield
         finally:
-            # make sure only one reader is leaving
+            # 确保只有一个读进程离开
             current_cache_rlock.acquire(timeout=60)
             try:
                 redis_t.decr(lock_reader)
@@ -283,6 +291,7 @@ class CacheUtils:
     @staticmethod
     @contextlib.contextmanager
     def writer_lock(redis_t, lock_name):
+        """写锁上下文管理器"""
         current_cache_wlock = redis_lock.Lock(redis_t, f"{lock_name}-wlock", id=CacheUtils.LOCK_ID)
         CacheUtils.acquire(current_cache_wlock, lock_name)
         try:
@@ -292,7 +301,7 @@ class CacheUtils:
 
 
 class BaseProviderCache:
-    """Provider cache base class"""
+    """提供程序缓存基类"""
 
     def __init__(self, provider):
         self.provider = provider
@@ -303,6 +312,7 @@ class BaseProviderCache:
 
     @staticmethod
     def check_cache_exists(cache_path: Union[str, Path], suffix_list: Iterable = (".index", ".meta")) -> bool:
+        """检查缓存是否存在"""
         cache_path = Path(cache_path)
         for p in [cache_path] + [cache_path.with_suffix(_s) for _s in suffix_list]:
             if not p.exists():
@@ -311,6 +321,7 @@ class BaseProviderCache:
 
     @staticmethod
     def clear_cache(cache_path: Union[str, Path]):
+        """清除缓存"""
         for p in [
             cache_path,
             cache_path.with_suffix(".meta"),
@@ -321,23 +332,24 @@ class BaseProviderCache:
 
     @staticmethod
     def get_cache_dir(dir_name: str, freq: str = None) -> Path:
+        """获取缓存目录"""
         cache_dir = Path(C.dpm.get_data_uri(freq)).joinpath(dir_name)
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
 
 
 class ExpressionCache(BaseProviderCache):
-    """Expression cache mechanism base class.
+    """表达式缓存机制基类。
 
-    This class is used to wrap expression provider with self-defined expression cache mechanism.
+    此类用于包装具有自定义表达式缓存机制的表达式提供程序。
 
-    .. note:: Override the `_uri` and `_expression` method to create your own expression cache mechanism.
+    .. note:: 覆盖 `_uri` 和 `_expression` 方法以创建自己的表达式缓存机制。
     """
 
     def expression(self, instrument, field, start_time, end_time, freq):
-        """Get expression data.
+        """获取表达式数据。
 
-        .. note:: Same interface as `expression` method in expression provider
+        .. note:: 与表达式提供程序中的 `expression` 方法具有相同的接口
         """
         try:
             return self._expression(instrument, field, start_time, end_time, freq)
@@ -345,44 +357,44 @@ class ExpressionCache(BaseProviderCache):
             return self.provider.expression(instrument, field, start_time, end_time, freq)
 
     def _uri(self, instrument, field, start_time, end_time, freq):
-        """Get expression cache file uri.
+        """获取表达式缓存文件 URI。
 
-        Override this method to define how to get expression cache file uri corresponding to users' own cache mechanism.
+        覆盖此方法以定义如何根据用户自己的缓存机制获取表达式缓存文件 URI。
         """
-        raise NotImplementedError("Implement this function to match your own cache mechanism")
+        raise NotImplementedError("实现此函数以匹配您自己的缓存机制")
 
     def _expression(self, instrument, field, start_time, end_time, freq):
-        """Get expression data using cache.
+        """使用缓存获取表达式数据。
 
-        Override this method to define how to get expression data corresponding to users' own cache mechanism.
+        覆盖此方法以定义如何根据用户自己的缓存机制获取表达式数据。
         """
-        raise NotImplementedError("Implement this method if you want to use expression cache")
+        raise NotImplementedError("如果要使用表达式缓存，请实现此方法")
 
     def update(self, cache_uri: Union[str, Path], freq: str = "day"):
-        """Update expression cache to latest calendar.
+        """将表达式缓存更新到最新的日历。
 
-        Override this method to define how to update expression cache corresponding to users' own cache mechanism.
+        覆盖此方法以定义如何根据用户自己的缓存机制更新表达式缓存。
 
-        Parameters
+        参数
         ----------
         cache_uri : str or Path
-            the complete uri of expression cache file (include dir path).
+            表达式缓存文件的完整 URI（包括目录路径）。
         freq : str
 
-        Returns
+        返回
         -------
         int
-            0(successful update)/ 1(no need to update)/ 2(update failure).
+            0（更新成功）/ 1（无需更新）/ 2（更新失败）。
         """
-        raise NotImplementedError("Implement this method if you want to make expression cache up to date")
+        raise NotImplementedError("如果要使表达式缓存保持最新，请实现此方法")
 
 
 class DatasetCache(BaseProviderCache):
-    """Dataset cache mechanism base class.
+    """数据集缓存机制基类。
 
-    This class is used to wrap dataset provider with self-defined dataset cache mechanism.
+    此类用于包装具有自定义数据集缓存机制的数据集提供程序。
 
-    .. note:: Override the `_uri` and `_dataset` method to create your own dataset cache mechanism.
+    .. note:: 覆盖 `_uri` 和 `_dataset` 方法以创建自己的数据集缓存机制。
     """
 
     HDF_KEY = "df"
@@ -390,21 +402,19 @@ class DatasetCache(BaseProviderCache):
     def dataset(
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=1, inst_processors=[]
     ):
-        """Get feature dataset.
+        """获取特征数据集。
 
-        .. note:: Same interface as `dataset` method in dataset provider
+        .. note:: 与数据集提供程序中的 `dataset` 方法具有相同的接口
 
-        .. note:: The server use redis_lock to make sure
-            read-write conflicts will not be triggered
-            but client readers are not considered.
+        .. note:: 服务器使用 redis_lock 确保不会触发读写冲突，但未考虑客户端读取器。
         """
         if disk_cache == 0:
-            # skip cache
+            # 跳过缓存
             return self.provider.dataset(
                 instruments, fields, start_time, end_time, freq, inst_processors=inst_processors
             )
         else:
-            # use and replace cache
+            # 使用并替换缓存
             try:
                 return self._dataset(
                     instruments, fields, start_time, end_time, freq, disk_cache, inst_processors=inst_processors
@@ -415,70 +425,70 @@ class DatasetCache(BaseProviderCache):
                 )
 
     def _uri(self, instruments, fields, start_time, end_time, freq, **kwargs):
-        """Get dataset cache file uri.
+        """获取数据集缓存文件 URI。
 
-        Override this method to define how to get dataset cache file uri corresponding to users' own cache mechanism.
+        覆盖此方法以定义如何根据用户自己的缓存机制获取数据集缓存文件 URI。
         """
-        raise NotImplementedError("Implement this function to match your own cache mechanism")
+        raise NotImplementedError("实现此函数以匹配您自己的缓存机制")
 
     def _dataset(
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=1, inst_processors=[]
     ):
-        """Get feature dataset using cache.
+        """使用缓存获取特征数据集。
 
-        Override this method to define how to get feature dataset corresponding to users' own cache mechanism.
+        覆盖此方法以定义如何根据用户自己的缓存机制获取特征数据集。
         """
-        raise NotImplementedError("Implement this method if you want to use dataset feature cache")
+        raise NotImplementedError("如果要使用数据集特征缓存，请实现此方法")
 
     def _dataset_uri(
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=1, inst_processors=[]
     ):
-        """Get a uri of feature dataset using cache.
-        specially:
-            disk_cache=1 means using data set cache and return the uri of cache file.
-            disk_cache=0 means client knows the path of expression cache,
-                         server checks if the cache exists(if not, generate it), and client loads data by itself.
-        Override this method to define how to get feature dataset uri corresponding to users' own cache mechanism.
+        """使用缓存获取特征数据集的 URI。
+        特别地：
+            disk_cache=1 表示使用数据集缓存并返回缓存文件的 URI。
+            disk_cache=0 表示客户端知道表达式缓存的路径，
+                         服务器检查缓存是否存在（如果不存在，则生成它），然后客户端自行加载数据。
+        覆盖此方法以定义如何根据用户自己的缓存机制获取特征数据集 URI。
         """
         raise NotImplementedError(
-            "Implement this method if you want to use dataset feature cache as a cache file for client"
+            "如果要将数据集特征缓存用作客户端的缓存文件，请实现此方法"
         )
 
     def update(self, cache_uri: Union[str, Path], freq: str = "day"):
-        """Update dataset cache to latest calendar.
+        """将数据集缓存更新到最新的日历。
 
-        Override this method to define how to update dataset cache corresponding to users' own cache mechanism.
+        覆盖此方法以定义如何根据用户自己的缓存机制更新数据集缓存。
 
-        Parameters
+        参数
         ----------
         cache_uri : str or Path
-            the complete uri of dataset cache file (include dir path).
+            数据集缓存文件的完整 URI（包括目录路径）。
         freq : str
 
-        Returns
+        返回
         -------
         int
-            0(successful update)/ 1(no need to update)/ 2(update failure)
+            0（更新成功）/ 1（无需更新）/ 2（更新失败）
         """
-        raise NotImplementedError("Implement this method if you want to make expression cache up to date")
+        raise NotImplementedError("如果要使表达式缓存保持最新，请实现此方法")
 
     @staticmethod
     def cache_to_origin_data(data, fields):
-        """cache data to origin data
+        """将缓存数据转换为原始数据
 
-        :param data: pd.DataFrame, cache data.
-        :param fields: feature fields.
+        :param data: pd.DataFrame，缓存数据。
+        :param fields: 特征字段。
         :return: pd.DataFrame.
         """
         not_space_fields = remove_fields_space(fields)
         data = data.loc[:, not_space_fields]
-        # set features fields
+        # 设置特征字段
         data.columns = [str(i) for i in fields]
         return data
 
     @staticmethod
     def normalize_uri_args(instruments, fields, freq):
-        """normalize uri args"""
+        """规范化 URI 参数"""
         instruments = normalize_cache_instruments(instruments)
         fields = normalize_cache_fields(fields)
         freq = freq.lower()
@@ -487,12 +497,12 @@ class DatasetCache(BaseProviderCache):
 
 
 class DiskExpressionCache(ExpressionCache):
-    """Prepared cache mechanism for server."""
+    """为服务器准备的磁盘表达式缓存机制。"""
 
     def __init__(self, provider, **kwargs):
         super(DiskExpressionCache, self).__init__(provider)
         self.r = get_redis_connection()
-        # remote==True means client is using this module, writing behaviour will not be allowed.
+        # remote==True 表示客户端正在使用此模块，将不允许写入行为。
         self.remote = kwargs.get("remote", False)
 
     def get_cache_dir(self, freq: str = None) -> Path:
@@ -507,7 +517,7 @@ class DiskExpressionCache(ExpressionCache):
         _cache_uri = self._uri(instrument=instrument, field=field, start_time=None, end_time=None, freq=freq)
         _instrument_dir = self.get_cache_dir(freq).joinpath(instrument.lower())
         cache_path = _instrument_dir.joinpath(_cache_uri)
-        # get calendar
+        # 获取日历
         from .data import Cal  # pylint: disable=C0415
 
         _calendar = Cal.calendar(freq=freq)
@@ -516,36 +526,34 @@ class DiskExpressionCache(ExpressionCache):
 
         if self.check_cache_exists(cache_path, suffix_list=[".meta"]):
             """
-            In most cases, we do not need reader_lock.
-            Because updating data is a small probability event compare to reading data.
-
+            在大多数情况下，我们不需要读锁。
+            因为与读取数据相比，更新数据是小概率事件。
             """
-            # FIXME: Removing the reader lock may result in conflicts.
+            # FIXME: 删除读锁可能会导致冲突。
             # with CacheUtils.reader_lock(self.r, 'expression-%s' % _cache_uri):
 
-            # modify expression cache meta file
+            # 修改表达式缓存元文件
             try:
-                # FIXME: Multiple readers may result in error visit number
+                # FIXME: 多个读取器可能会导致访问次数错误
                 if not self.remote:
                     CacheUtils.visit(cache_path)
                 series = read_bin(cache_path, start_index, end_index)
                 return series
             except Exception:
                 series = None
-                self.logger.error("reading %s file error : %s" % (cache_path, traceback.format_exc()))
+                self.logger.error("读取 %s 文件时出错 : %s" % (cache_path, traceback.format_exc()))
             return series
         else:
-            # normalize field
+            # 规范化字段
             field = remove_fields_space(field)
-            # cache unavailable, generate the cache
+            # 缓存不可用，生成缓存
             _instrument_dir.mkdir(parents=True, exist_ok=True)
             if not isinstance(eval(parse_field(field)), Feature):
-                # When the expression is not a raw feature
-                # generate expression cache if the feature is not a Feature
-                # instance
+                # 当表达式不是原始特征时
+                # 如果特征不是 Feature 实例，则生成表达式缓存
                 series = self.provider.expression(instrument, field, _calendar[0], _calendar[-1], freq)
                 if not series.empty:
-                    # This expression is empty, we don't generate any cache for it.
+                    # 此表达式为空，我们不为其生成任何缓存。
                     with CacheUtils.writer_lock(self.r, f"{str(C.dpm.get_data_uri(freq))}:expression-{_cache_uri}"):
                         self.gen_expression_cache(
                             expression_data=series,
@@ -559,18 +567,17 @@ class DiskExpressionCache(ExpressionCache):
                 else:
                     return series
             else:
-                # If the expression is a raw feature(such as $close, $open)
+                # 如果表达式是原始特征（例如 $close, $open）
                 return self.provider.expression(instrument, field, start_time, end_time, freq)
 
     def gen_expression_cache(self, expression_data, cache_path, instrument, field, freq, last_update):
-        """use bin file to save like feature-data."""
-        # Make sure the cache runs right when the directory is deleted
-        # while running
+        """使用二进制文件保存类似特征的数据。"""
+        # 确保在目录被删除时缓存仍能正常运行
         meta = {
             "info": {"instrument": instrument, "field": field, "freq": freq, "last_update": last_update},
             "meta": {"last_visit": time.time(), "visits": 1},
         }
-        self.logger.debug(f"generating expression cache: {meta}")
+        self.logger.debug(f"正在生成表达式缓存: {meta}")
         self.clear_cache(cache_path)
         meta_path = cache_path.with_suffix(".meta")
 
@@ -586,7 +593,7 @@ class DiskExpressionCache(ExpressionCache):
         cp_cache_uri = self.get_cache_dir(freq).joinpath(sid).joinpath(cache_uri)
         meta_path = cp_cache_uri.with_suffix(".meta")
         if not self.check_cache_exists(cp_cache_uri, suffix_list=[".meta"]):
-            self.logger.info(f"The cache {cp_cache_uri} has corrupted. It will be removed")
+            self.logger.info(f"缓存 {cp_cache_uri} 已损坏，将被删除")
             self.clear_cache(cp_cache_uri)
             return 2
 
@@ -598,24 +605,24 @@ class DiskExpressionCache(ExpressionCache):
             freq = d["info"]["freq"]
             last_update_time = d["info"]["last_update"]
 
-            # get newest calendar
+            # 获取最新的日历
             from .data import Cal, ExpressionD  # pylint: disable=C0415
 
             whole_calendar = Cal.calendar(start_time=None, end_time=None, freq=freq)
-            # calendar since last updated.
+            # 自上次更新以来的日历。
             new_calendar = Cal.calendar(start_time=last_update_time, end_time=None, freq=freq)
 
-            # get append data
+            # 获取追加数据
             if len(new_calendar) <= 1:
-                # Including last updated calendar, we only get 1 item.
-                # No future updating is needed.
+                # 包括上次更新的日历，我们只得到 1 个项目。
+                # 不需要未来更新。
                 return 1
             else:
-                # get the data needed after the historical data are removed.
-                # The start index of new data
+                # 获取删除历史数据后所需的数据。
+                # 新数据的开始索引
                 current_index = len(whole_calendar) - len(new_calendar) + 1
 
-                # The existing data length
+                # 现有数据长度
                 size_bytes = os.path.getsize(cp_cache_uri)
                 ele_size = np.dtype("<f").itemsize
                 assert size_bytes % ele_size == 0
@@ -623,9 +630,9 @@ class DiskExpressionCache(ExpressionCache):
 
                 expr = ExpressionD.get_expression_instance(field)
                 lft_etd, rght_etd = expr.get_extended_window_size()
-                # The expression used the future data after rght_etd days.
-                # So the last rght_etd data should be removed.
-                # There are most `ele_n` period of data can be remove
+                # 表达式使用了 rght_etd 天后的未来数据。
+                # 因此应删除最后的 rght_etd 数据。
+                # 最多可以删除 `ele_n` 个周期的数据
                 remove_n = min(rght_etd, ele_n)
                 assert new_calendar[1] == whole_calendar[current_index]
                 data = self.provider.expression(
@@ -633,10 +640,10 @@ class DiskExpressionCache(ExpressionCache):
                 )
                 with open(cp_cache_uri, "ab") as f:
                     data = np.array(data).astype("<f")
-                    # Remove the last bits
+                    # 删除最后的位
                     f.truncate(size_bytes - ele_size * remove_n)
                     f.write(data)
-                # update meta file
+                # 更新元文件
                 d["info"]["last_update"] = str(new_calendar[-1])
                 with meta_path.open("wb") as f:
                     pickle.dump(d, f, protocol=C.dump_protocol_version)
@@ -644,7 +651,7 @@ class DiskExpressionCache(ExpressionCache):
 
 
 class DiskDatasetCache(DatasetCache):
-    """Prepared cache mechanism for server."""
+    """为服务器准备的磁盘数据集缓存机制。"""
 
     def __init__(self, provider, **kwargs):
         super(DiskDatasetCache, self).__init__(provider)
@@ -660,14 +667,14 @@ class DiskDatasetCache(DatasetCache):
 
     @classmethod
     def read_data_from_cache(cls, cache_path: Union[str, Path], start_time, end_time, fields):
-        """read_cache_from
+        """从缓存中读取数据
 
-        This function can read data from the disk cache dataset
+        此函数可以从磁盘缓存数据集中读取数据
 
         :param cache_path:
         :param start_time:
         :param end_time:
-        :param fields: The fields order of the dataset cache is sorted. So rearrange the columns to make it consistent.
+        :param fields: 数据集缓存的字段顺序是排序的。因此重新排列列以使其一致。
         :return:
         """
 
@@ -685,7 +692,7 @@ class DiskDatasetCache(DatasetCache):
             if "/{}".format(im.KEY) in store.keys():
                 df = store.select(key=im.KEY, start=start, stop=stop)
                 df = df.swaplevel("datetime", "instrument").sort_index()
-                # read cache and need to replace not-space fields to field
+                # 读取缓存并需要将非空格字段替换为字段
                 df = cls.cache_to_origin_data(df, fields)
 
             else:
@@ -696,15 +703,15 @@ class DiskDatasetCache(DatasetCache):
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=0, inst_processors=[]
     ):
         if disk_cache == 0:
-            # In this case, data_set cache is configured but will not be used.
+            # 在这种情况下，数据集缓存已配置但不会被使用。
             return self.provider.dataset(
                 instruments, fields, start_time, end_time, freq, inst_processors=inst_processors
             )
-        # FIXME: The cache after resample, when read again and intercepted with end_time, results in incomplete data date
+        # FIXME: 重采样后的缓存在再次读取并使用 end_time 截取时，会导致数据日期不完整
         if inst_processors:
             raise ValueError(
-                f"{self.__class__.__name__} does not support inst_processor. "
-                f"Please use `D.features(disk_cache=0)` or `qlib.init(dataset_cache=None)`"
+                f"{self.__class__.__name__} 不支持 inst_processor。 "
+                f"请使用 `D.features(disk_cache=0)` 或 `qlib.init(dataset_cache=None)`"
             )
         _cache_uri = self._uri(
             instruments=instruments,
@@ -723,7 +730,7 @@ class DiskDatasetCache(DatasetCache):
 
         if self.check_cache_exists(cache_path):
             if disk_cache == 1:
-                # use cache
+                # 使用缓存
                 with CacheUtils.reader_lock(self.r, f"{str(C.dpm.get_data_uri(freq))}:dataset-{_cache_uri}"):
                     CacheUtils.visit(cache_path)
                     features = self.read_data_from_cache(cache_path, start_time, end_time, fields)
@@ -733,7 +740,7 @@ class DiskDatasetCache(DatasetCache):
             gen_flag = True
 
         if gen_flag:
-            # cache unavailable, generate the cache
+            # 缓存不可用，生成缓存
             with CacheUtils.writer_lock(self.r, f"{str(C.dpm.get_data_uri(freq))}:dataset-{_cache_uri}"):
                 features = self.gen_dataset_cache(
                     cache_path=cache_path,
@@ -750,17 +757,17 @@ class DiskDatasetCache(DatasetCache):
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=0, inst_processors=[]
     ):
         if disk_cache == 0:
-            # In this case, server only checks the expression cache.
-            # The client will load the cache data by itself.
+            # 在这种情况下，服务器只检查表达式缓存。
+            # 客户端将自行加载缓存数据。
             from .data import LocalDatasetProvider  # pylint: disable=C0415
 
             LocalDatasetProvider.multi_cache_walker(instruments, fields, start_time, end_time, freq)
             return ""
-        # FIXME: The cache after resample, when read again and intercepted with end_time, results in incomplete data date
+        # FIXME: 重采样后的缓存在再次读取并使用 end_time 截取时，会导致数据日期不完整
         if inst_processors:
             raise ValueError(
-                f"{self.__class__.__name__} does not support inst_processor. "
-                f"Please use `D.features(disk_cache=0)` or `qlib.init(dataset_cache=None)`"
+                f"{self.__class__.__name__} 不支持 inst_processor。 "
+                f"请使用 `D.features(disk_cache=0)` 或 `qlib.init(dataset_cache=None)`"
             )
         _cache_uri = self._uri(
             instruments=instruments,
@@ -774,12 +781,12 @@ class DiskDatasetCache(DatasetCache):
         cache_path = self.get_cache_dir(freq).joinpath(_cache_uri)
 
         if self.check_cache_exists(cache_path):
-            self.logger.debug(f"The cache dataset has already existed {cache_path}. Return the uri directly")
+            self.logger.debug(f"缓存数据集已存在于 {cache_path}。直接返回 URI")
             with CacheUtils.reader_lock(self.r, f"{str(C.dpm.get_data_uri(freq))}:dataset-{_cache_uri}"):
                 CacheUtils.visit(cache_path)
             return _cache_uri
         else:
-            # cache unavailable, generate the cache
+            # 缓存不可用，生成缓存
             with CacheUtils.writer_lock(self.r, f"{str(C.dpm.get_data_uri(freq))}:dataset-{_cache_uri}"):
                 self.gen_dataset_cache(
                     cache_path=cache_path,
@@ -792,8 +799,8 @@ class DiskDatasetCache(DatasetCache):
 
     class IndexManager:
         """
-        The lock is not considered in the class. Please consider the lock outside the code.
-        This class is the proxy of the disk data.
+        此类不考虑锁。请在代码外部考虑锁。
+        此类是磁盘数据的代理。
         """
 
         KEY = "df"
@@ -804,21 +811,21 @@ class DiskDatasetCache(DatasetCache):
             self.logger = get_module_logger(self.__class__.__name__)
 
         def get_index(self, start_time=None, end_time=None):
-            # TODO: fast read index from the disk.
+            # TODO: 从磁盘快速读取索引。
             if self._data is None:
                 self.sync_from_disk()
             return self._data.loc[start_time:end_time].copy()
 
         def sync_to_disk(self):
             if self._data is None:
-                raise ValueError("No data to sync to disk.")
+                raise ValueError("没有数据可同步到磁盘。")
             self._data.sort_index(inplace=True)
             self._data.to_hdf(self.index_path, key=self.KEY, mode="w", format="table")
-            # The index should be readable for all users
+            # 索引应为所有用户可读
             self.index_path.chmod(stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
 
         def sync_from_disk(self):
-            # The file will not be closed directly if we read_hdf from the disk directly
+            # 如果直接从磁盘 read_hdf，文件不会直接关闭
             with pd.HDFStore(self.index_path, mode="r") as store:
                 if "/{}".format(self.KEY) in store.keys():
                     self._data = pd.read_hdf(store, key=self.KEY)
@@ -854,16 +861,15 @@ class DiskDatasetCache(DatasetCache):
             return index_data
 
     def gen_dataset_cache(self, cache_path: Union[str, Path], instruments, fields, freq, inst_processors=[]):
-        """gen_dataset_cache
+        """生成数据集缓存
 
-        .. note:: This function does not consider the cache read write lock. Please
-            acquire the lock outside this function
+        .. note:: 此函数不考虑缓存读写锁。请在此函数外部获取锁
 
-        The format the cache contains 3 parts(followed by typical filename).
+        缓存格式包含 3 部分（后跟典型文件名）。
 
-        - index : cache/d41366901e25de3ec47297f12e2ba11d.index
+        - 索引 : cache/d41366901e25de3ec47297f12e2ba11d.index
 
-            - The content of the file may be in following format(pandas.Series)
+            - 文件内容可能采用以下格式（pandas.Series）
 
                 .. code-block:: python
 
@@ -873,33 +879,32 @@ class DiskDatasetCache(DatasetCache):
                     1999-11-12 00:00:00     2   3
                     ...
 
-                .. note:: The start is closed. The end is open!!!!!
+                .. note:: start 是闭区间，end 是开区间！！！！
 
-            - Each line contains two element <start_index, end_index> with a timestamp as its index.
-            - It indicates the `start_index` (included) and `end_index` (excluded) of the data for `timestamp`
+            - 每行包含两个元素 <start_index, end_index>，并以时间戳作为其索引。
+            - 它指示 `timestamp` 的数据的 `start_index`（包含）和 `end_index`（不包含）。
 
-        - meta data: cache/d41366901e25de3ec47297f12e2ba11d.meta
+        - 元数据: cache/d41366901e25de3ec47297f12e2ba11d.meta
 
-        - data     : cache/d41366901e25de3ec47297f12e2ba11d
+        - 数据     : cache/d41366901e25de3ec47297f12e2ba11d
 
-            - This is a hdf file sorted by datetime
+            - 这是一个按日期时间排序的 hdf 文件
 
-        :param cache_path:  The path to store the cache.
-        :param instruments:  The instruments to store the cache.
-        :param fields:  The fields to store the cache.
-        :param freq:  The freq to store the cache.
-        :param inst_processors:  Instrument processors.
+        :param cache_path:  存储缓存的路径。
+        :param instruments:  存储缓存的金融工具。
+        :param fields:  存储缓存的字段。
+        :param freq:  存储缓存的频率。
+        :param inst_processors:  金融工具处理器。
 
-        :return type pd.DataFrame; The fields of the returned DataFrame are consistent with the parameters of the function.
+        :return type pd.DataFrame; 返回的 DataFrame 的字段与函数的参数一致。
         """
-        # get calendar
+        # 获取日历
         from .data import Cal  # pylint: disable=C0415
 
         cache_path = Path(cache_path)
         _calendar = Cal.calendar(freq=freq)
-        self.logger.debug(f"Generating dataset cache {cache_path}")
-        # Make sure the cache runs right when the directory is deleted
-        # while running
+        self.logger.debug(f"正在生成数据集缓存 {cache_path}")
+        # 确保在目录被删除时缓存仍能正常运行
         self.clear_cache(cache_path)
 
         features = self.provider.dataset(
@@ -909,50 +914,49 @@ class DiskDatasetCache(DatasetCache):
         if features.empty:
             return features
 
-        # swap index and sorted
+        # 交换索引级别并排序
         features = features.swaplevel("instrument", "datetime").sort_index()
 
-        # write cache data
+        # 写入缓存数据
         with pd.HDFStore(str(cache_path.with_suffix(".data"))) as store:
             cache_to_orig_map = dict(zip(remove_fields_space(features.columns), features.columns))
             orig_to_cache_map = dict(zip(features.columns, remove_fields_space(features.columns)))
             cache_features = features[list(cache_to_orig_map.values())].rename(columns=orig_to_cache_map)
-            # cache columns
+            # 缓存列
             cache_columns = sorted(cache_features.columns)
             cache_features = cache_features.loc[:, cache_columns]
             cache_features = cache_features.loc[:, ~cache_features.columns.duplicated()]
             store.append(DatasetCache.HDF_KEY, cache_features, append=False)
-        # write meta file
+        # 写入元文件
         meta = {
             "info": {
                 "instruments": instruments,
                 "fields": list(cache_features.columns),
                 "freq": freq,
-                "last_update": str(_calendar[-1]),  # The last_update to store the cache
-                "inst_processors": inst_processors,  # The last_update to store the cache
+                "last_update": str(_calendar[-1]),  # 存储缓存的最后更新
+                "inst_processors": inst_processors,  # 存储缓存的金融工具处理器
             },
             "meta": {"last_visit": time.time(), "visits": 1},
         }
         with cache_path.with_suffix(".meta").open("wb") as f:
             pickle.dump(meta, f, protocol=C.dump_protocol_version)
         cache_path.with_suffix(".meta").chmod(stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
-        # write index file
+        # 写入索引文件
         im = DiskDatasetCache.IndexManager(cache_path)
         index_data = im.build_index_from_data(features)
         im.update(index_data)
 
-        # rename the file after the cache has been generated
-        # this doesn't work well on windows, but our server won't use windows
-        # temporarily
+        # 缓存生成后重命名文件
+        # 这在 windows 上效果不佳，但我们的服务器暂时不会使用 windows
         cache_path.with_suffix(".data").rename(cache_path)
-        # the fields of the cached features are converted to the original fields
+        # 缓存特征的字段将转换为原始字段
         return features.swaplevel("datetime", "instrument")
 
     def update(self, cache_uri, freq: str = "day"):
         cp_cache_uri = self.get_cache_dir(freq).joinpath(cache_uri)
         meta_path = cp_cache_uri.with_suffix(".meta")
         if not self.check_cache_exists(cp_cache_uri):
-            self.logger.info(f"The cache {cp_cache_uri} has corrupted. It will be removed")
+            self.logger.info(f"缓存 {cp_cache_uri} 已损坏，将被删除")
             self.clear_cache(cp_cache_uri)
             return 2
 
@@ -967,43 +971,43 @@ class DiskDatasetCache(DatasetCache):
             inst_processors = d["info"].get("inst_processors", [])
             index_data = im.get_index()
 
-            self.logger.debug("Updating dataset: {}".format(d))
+            self.logger.debug("正在更新数据集: {}".format(d))
             from .data import Inst  # pylint: disable=C0415
 
             if Inst.get_inst_type(instruments) == Inst.DICT:
-                self.logger.info(f"The file {cache_uri} has dict cache. Skip updating")
+                self.logger.info(f"文件 {cache_uri} 包含字典缓存。跳过更新")
                 return 1
 
-            # get newest calendar
+            # 获取最新的日历
             from .data import Cal  # pylint: disable=C0415
 
             whole_calendar = Cal.calendar(start_time=None, end_time=None, freq=freq)
-            # The calendar since last updated
+            # 自上次更新以来的日历
             new_calendar = Cal.calendar(start_time=last_update_time, end_time=None, freq=freq)
 
-            # get append data
+            # 获取追加数据
             if len(new_calendar) <= 1:
-                # Including last updated calendar, we only get 1 item.
-                # No future updating is needed.
+                # 包括上次更新的日历，我们只得到 1 个项目。
+                # 不需要未来更新。
                 return 1
             else:
-                # get the data needed after the historical data are removed.
-                # The start index of new data
+                # 获取删除历史数据后所需的数据。
+                # 新数据的开始索引
                 current_index = len(whole_calendar) - len(new_calendar) + 1
 
-                # To avoid recursive import
+                # 避免递归导入
                 from .data import ExpressionD  # pylint: disable=C0415
 
-                # The existing data length
+                # 现有数据长度
                 lft_etd = rght_etd = 0
                 for field in fields:
                     expr = ExpressionD.get_expression_instance(field)
                     l, r = expr.get_extended_window_size()
                     lft_etd = max(lft_etd, l)
                     rght_etd = max(rght_etd, r)
-                # remove the period that should be updated.
+                # 删除应更新的周期。
                 if index_data.empty:
-                    # We don't have any data for such dataset. Nothing to remove
+                    # 我们没有任何此数据集的数据。无需删除
                     rm_n_period = rm_lines = 0
                 else:
                     rm_n_period = min(rght_etd, index_data.shape[0])
@@ -1028,15 +1032,15 @@ class DiskDatasetCache(DatasetCache):
                     data.set_index(["datetime", "instrument"], inplace=True)
                     data.sort_index(inplace=True)
                 else:
-                    return 0  # No data to update cache
+                    return 0  # 没有数据可更新缓存
 
                 store = pd.HDFStore(cp_cache_uri)
                 # FIXME:
-                # Because the feature cache are stored as .bin file.
-                # So the series read from features are all float32.
-                # However, the first dataset cache is calculated based on the
-                # raw data. So the data type may be float64.
-                # Different data type will result in failure of appending data
+                # 因为特征缓存存储为 .bin 文件。
+                # 所以从特征读取的序列都是 float32。
+                # 然而，第一个数据集缓存是基于原始数据计算的。
+                # 所以数据类型可能是 float64。
+                # 不同的数据类型会导致追加数据失败
                 if "/{}".format(DatasetCache.HDF_KEY) in store.keys():
                     schema = store.select(DatasetCache.HDF_KEY, start=0, stop=0)
                     for col, dtype in schema.dtypes.items():
@@ -1046,14 +1050,14 @@ class DiskDatasetCache(DatasetCache):
                 store.append(DatasetCache.HDF_KEY, data)
                 store.close()
 
-                # update index file
+                # 更新索引文件
                 new_index_data = im.build_index_from_data(
                     data.loc(axis=0)[whole_calendar[current_index] :, :],
                     start_index=0 if index_data.empty else index_data["end"].iloc[-1],
                 )
                 im.append_index(new_index_data)
 
-                # update meta file
+                # 更新元文件
                 d["info"]["last_update"] = str(new_calendar[-1])
                 with meta_path.open("wb") as f:
                     pickle.dump(d, f, protocol=C.dump_protocol_version)
@@ -1061,18 +1065,18 @@ class DiskDatasetCache(DatasetCache):
 
 
 class SimpleDatasetCache(DatasetCache):
-    """Simple dataset cache that can be used locally or on client."""
+    """可本地或客户端使用的简单数据集缓存。"""
 
     def __init__(self, provider):
         super(SimpleDatasetCache, self).__init__(provider)
         try:
             self.local_cache_path: Path = Path(C["local_cache_path"]).expanduser().resolve()
         except (KeyError, TypeError):
-            self.logger.error("Assign a local_cache_path in config if you want to use this cache mechanism")
+            self.logger.error("如果要使用此缓存机制，请在配置中分配一个 local_cache_path")
             raise
         self.logger.info(
-            f"DatasetCache directory: {self.local_cache_path}, "
-            f"modify the cache directory via the local_cache_path in the config"
+            f"数据集缓存目录: {self.local_cache_path}, "
+            f"通过配置中的 local_cache_path 修改缓存目录"
         )
 
     def _uri(self, instruments, fields, start_time, end_time, freq, disk_cache=1, inst_processors=[], **kwargs):
@@ -1085,7 +1089,7 @@ class SimpleDatasetCache(DatasetCache):
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=1, inst_processors=[]
     ):
         if disk_cache == 0:
-            # In this case, data_set cache is configured but will not be used.
+            # 在这种情况下，数据集缓存已配置但不会被使用。
             return self.provider.dataset(instruments, fields, start_time, end_time, freq)
         self.local_cache_path.mkdir(exist_ok=True, parents=True)
         cache_file = self.local_cache_path.joinpath(
@@ -1097,11 +1101,11 @@ class SimpleDatasetCache(DatasetCache):
 
         if cache_file.exists():
             if disk_cache == 1:
-                # use cache
+                # 使用缓存
                 df = pd.read_pickle(cache_file)
                 return self.cache_to_origin_data(df, fields)
             elif disk_cache == 2:
-                # replace cache
+                # 替换缓存
                 gen_flag = True
         else:
             gen_flag = True
@@ -1115,7 +1119,7 @@ class SimpleDatasetCache(DatasetCache):
 
 
 class DatasetURICache(DatasetCache):
-    """Prepared cache mechanism for server."""
+    """为服务器准备的数据集 URI 缓存机制。"""
 
     def _uri(self, instruments, fields, start_time, end_time, freq, disk_cache=1, inst_processors=[], **kwargs):
         return hash_args(*self.normalize_uri_args(instruments, fields, freq), disk_cache, inst_processors)
@@ -1124,13 +1128,13 @@ class DatasetURICache(DatasetCache):
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=0, inst_processors=[]
     ):
         if "local" in C.dataset_provider.lower():
-            # use LocalDatasetProvider
+            # 使用 LocalDatasetProvider
             return self.provider.dataset(
                 instruments, fields, start_time, end_time, freq, inst_processors=inst_processors
             )
 
         if disk_cache == 0:
-            # do not use data_set cache, load data from remote expression cache directly
+            # 不使用数据集缓存，直接从远程表达式缓存加载数据
             return self.provider.dataset(
                 instruments,
                 fields,
@@ -1141,13 +1145,13 @@ class DatasetURICache(DatasetCache):
                 return_uri=False,
                 inst_processors=inst_processors,
             )
-        # FIXME: The cache after resample, when read again and intercepted with end_time, results in incomplete data date
+        # FIXME: 重采样后的缓存在再次读取并使用 end_time 截取时，会导致数据日期不完整
         if inst_processors:
             raise ValueError(
-                f"{self.__class__.__name__} does not support inst_processor. "
-                f"Please use `D.features(disk_cache=0)` or `qlib.init(dataset_cache=None)`"
+                f"{self.__class__.__name__} 不支持 inst_processor。 "
+                f"请使用 `D.features(disk_cache=0)` 或 `qlib.init(dataset_cache=None)`"
             )
-        # use ClientDatasetProvider
+        # 使用 ClientDatasetProvider
         feature_uri = self._uri(
             instruments, fields, None, None, freq, disk_cache=disk_cache, inst_processors=inst_processors
         )
@@ -1164,23 +1168,25 @@ class DatasetURICache(DatasetCache):
                 return_uri=True,
                 inst_processors=inst_processors,
             )
-            # cache uri
+            # 缓存 URI
             MemCacheExpire.set_cache(H["f"], uri, uri)
-            # cache DataFrame
+            # 缓存 DataFrame
             # HZ['f'][uri] = df.copy()
-            get_module_logger("cache").debug(f"get feature from {C.dataset_provider}")
+            get_module_logger("cache").debug(f"从 {C.dataset_provider} 获取特征")
         else:
             df = DiskDatasetCache.read_data_from_cache(mnt_feature_uri, start_time, end_time, fields)
-            get_module_logger("cache").debug("get feature from uri cache")
+            get_module_logger("cache").debug("从 URI 缓存获取特征")
 
         return df
 
 
 class CalendarCache(BaseProviderCache):
+    """日历缓存基类"""
     pass
 
 
 class MemoryCalendarCache(CalendarCache):
+    """内存日历缓存"""
     def calendar(self, start_time=None, end_time=None, freq="day", future=False):
         uri = self._uri(start_time, end_time, freq, future)
         result, expire = MemCacheExpire.get_cache(H["c"], uri)
@@ -1188,11 +1194,12 @@ class MemoryCalendarCache(CalendarCache):
             result = self.provider.calendar(start_time, end_time, freq, future)
             MemCacheExpire.set_cache(H["c"], uri, result)
 
-            get_module_logger("data").debug(f"get calendar from {C.calendar_provider}")
+            get_module_logger("data").debug(f"从 {C.calendar_provider} 获取日历")
         else:
-            get_module_logger("data").debug("get calendar from local cache")
+            get_module_logger("data").debug("从本地缓存获取日历")
 
         return result
 
 
+# 全局内存缓存实例
 H = MemCache()

@@ -11,16 +11,16 @@ from ..log import get_module_logger
 
 
 class Expression(abc.ABC):
-    """
-    Expression base class
+    """表达式基类
 
-    Expression is designed to handle the calculation of data with the format below
-    data with two dimension for each instrument,
+    表达式旨在处理以下格式的数据计算：
+    每个金融工具（例如股票）的数据包含两个维度：
 
-    - feature
-    - time:  it  could be observation time or period time.
+    - 特征（feature）
+    - 时间（time）：可以是观察时间或时期时间。
 
-        - period time is designed for Point-in-time database.  For example, the period time maybe 2014Q4, its value can observed for multiple times(different value may be observed at different time due to amendment).
+        - 时期时间（period time）是为切点（Point-in-time）数据库设计的。例如，时期时间可能是 2014Q4，
+          它的值可以被多次观察（由于修正，不同时间观察到的值可能不同）。
     """
 
     def __str__(self):
@@ -140,50 +140,48 @@ class Expression(abc.ABC):
         return Or(other, self)
 
     def load(self, instrument, start_index, end_index, *args):
-        """load  feature
-        This function is responsible for loading feature/expression based on the expression engine.
+        """加载特征
 
-        The concrete implementation will be separated into two parts:
+        此函数负责基于表达式引擎加载特征/表达式。
 
-        1) caching data, handle errors.
+        具体实现分为两部分：
+        1) 缓存数据，处理错误。
+           - 这部分由所有表达式共享，并在 `Expression` 类中实现。
+        2) 基于特定表达式处理和计算数据。
+           - 这部分在每个表达式中都不同，并在各自的表达式类中实现。
 
-            - This part is shared by all the expressions and implemented in Expression
-        2) processing and calculating data based on the specific expression.
+        表达式引擎由不同的数据共享。
+        不同的数据将为 `args` 提供不同的额外信息。
 
-            - This part is different in each expression and implemented in each expression
-
-        Expression Engine is shared by different data.
-        Different data will have different extra information for `args`.
-
-        Parameters
+        参数
         ----------
         instrument : str
-            instrument code.
+            金融工具代码（例如股票代码）。
         start_index : str
-            feature start index [in calendar].
+            特征的开始索引 [在日历中]。
         end_index : str
-            feature end  index  [in calendar].
+            特征的结束索引 [在日历中]。
 
-        *args may contain following information:
-        1) if it is used in basic expression engine data, it contains following arguments
+        *args 可能包含以下信息：
+        1) 如果在基本表达式引擎数据中使用，它包含以下参数：
             freq: str
-                feature frequency.
+                特征的频率。
 
-        2) if is used in PIT data, it contains following arguments
+        2) 如果在切点（PIT）数据中使用，它包含以下参数：
             cur_pit:
-                it is designed for the point-in-time data.
+                为切点数据设计。
             period: int
-                This is used for query specific period.
-                The period is represented with int in Qlib. (e.g. 202001 may represent the first quarter in 2020)
+                用于查询特定时期。
+                在 Qlib 中，时期用整数表示（例如，202001 可能代表 2020 年第一季度）。
 
-        Returns
-        ----------
+        返回
+        -------
         pd.Series
-            feature series: The index of the series is the calendar index
+            特征序列：序列的索引是日历索引。
         """
         from .cache import H  # pylint: disable=C0415
 
-        # cache
+        # 缓存
         cache_key = str(self), instrument, start_index, end_index, *args
         if cache_key in H["f"]:
             return H["f"][cache_key]
@@ -204,30 +202,33 @@ class Expression(abc.ABC):
 
     @abc.abstractmethod
     def _load_internal(self, instrument, start_index, end_index, *args) -> pd.Series:
+        """
+        _load_internal 是一个用于加载数据的私有方法。
+        它由 `load` 方法调用。
+        子类必须实现此方法。
+        """
         raise NotImplementedError("This function must be implemented in your newly defined feature")
 
     @abc.abstractmethod
     def get_longest_back_rolling(self):
-        """Get the longest length of historical data the feature has accessed
+        """获取特征访问过的历史数据的最长回溯长度
 
-        This is designed for getting the needed range of the data to calculate
-        the features in specific range at first.  However, situations like
-        Ref(Ref($close, -1), 1) can not be handled rightly.
+        这旨在首先获取计算特定范围内特征所需的数据范围。
+        然而，像 `Ref(Ref($close, -1), 1)` 这样的情况无法正确处理。
 
-        So this will only used for detecting the length of historical data needed.
+        因此，这仅用于检测所需的历史数据长度。
         """
         # TODO: forward operator like Ref($close, -1) is not supported yet.
         raise NotImplementedError("This function must be implemented in your newly defined feature")
 
     @abc.abstractmethod
     def get_extended_window_size(self):
-        """get_extend_window_size
+        """获取扩展窗口大小
 
-        For to calculate this Operator in range[start_index, end_index]
-        We have to get the *leaf feature* in
-        range[start_index - lft_etd, end_index + rght_etd].
+        为了在范围 [start_index, end_index] 内计算此运算符，
+        我们必须在范围 [start_index - lft_etd, end_index + rght_etd] 内获取 *叶节点特征*。
 
-        Returns
+        返回
         ----------
         (int, int)
             lft_etd, rght_etd
@@ -236,9 +237,9 @@ class Expression(abc.ABC):
 
 
 class Feature(Expression):
-    """Static Expression
+    """静态表达式
 
-    This kind of feature will load data from provider
+    这种特征将从数据提供程序加载数据。
     """
 
     def __init__(self, name=None):
@@ -251,7 +252,7 @@ class Feature(Expression):
         return "$" + self._name
 
     def _load_internal(self, instrument, start_index, end_index, freq):
-        # load
+        # 加载
         from .data import FeatureD  # pylint: disable=C0415
 
         return FeatureD.feature(instrument, str(self), start_index, end_index, freq)
@@ -264,6 +265,7 @@ class Feature(Expression):
 
 
 class PFeature(Feature):
+    """切点（Point-in-time）特征"""
     def __str__(self):
         return "$$" + self._name
 
@@ -274,8 +276,7 @@ class PFeature(Feature):
 
 
 class ExpressionOps(Expression):
-    """Operator Expression
+    """运算符表达式
 
-    This kind of feature will use operator for feature
-    construction on the fly.
+    这种特征将使用运算符动态构建特征。
     """

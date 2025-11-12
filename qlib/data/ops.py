@@ -19,13 +19,13 @@ try:
     from ._libs.expanding import expanding_slope, expanding_rsquare, expanding_resi
 except ImportError:
     print(
-        "#### Do not import qlib package in the repository directory in case of importing qlib from . without compiling #####"
+        "#### 不要在仓库目录中导入 qlib 包，以免在未编译的情况下从 . 导入 qlib #####"
     )
     raise
 except ValueError:
-    print("!!!!!!!! A error occurs when importing operators implemented based on Cython.!!!!!!!!")
-    print("!!!!!!!! They will be disabled. Please Upgrade your numpy to enable them     !!!!!!!!")
-    # We catch this error because some platform can't upgrade there package (e.g. Kaggle)
+    print("!!!!!!!! 导入基于 Cython 实现的运算符时发生错误。!!!!!!!!")
+    print("!!!!!!!! 它们将被禁用。请升级您的 numpy 以启用它们     !!!!!!!!")
+    # 我们捕获此错误是因为某些平台无法升级其包（例如 Kaggle）
     # https://www.kaggle.com/general/293387
     # https://www.kaggle.com/product-feedback/98562
 
@@ -33,19 +33,19 @@ except ValueError:
 np.seterr(invalid="ignore")
 
 
-#################### Element-Wise Operator ####################
+#################### 逐元素运算符 ####################
 class ElemOperator(ExpressionOps):
-    """Element-wise Operator
+    """逐元素运算符
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Expression
-        feature operation output
+        特征运算输出
     """
 
     def __init__(self, feature):
@@ -62,21 +62,21 @@ class ElemOperator(ExpressionOps):
 
 
 class ChangeInstrument(ElemOperator):
-    """Change Instrument Operator
-    In some case, one may want to change to another instrument when calculating, for example, to
-    calculate beta of a stock with respect to a market index.
-    This would require changing the calculation of features from the stock (original instrument) to
-    the index (reference instrument)
-    Parameters
+    """更改金融工具运算符
+    在某些情况下，可能需要在计算时更改为另一个金融工具，例如，
+    计算某只股票相对于市场指数的 beta 值。
+    这将需要将特征的计算从股票（原始金融工具）更改为
+    指数（参考金融工具）
+    参数
     ----------
-    instrument: new instrument for which the downstream operations should be performed upon.
-                i.e., SH000300 (CSI300 index), or ^GPSC (SP500 index).
+    instrument: 新的金融工具，下游操作将在此金融工具上执行。
+                例如，SH000300（沪深300指数），或 ^GPSC（标普500指数）。
 
-    feature: the feature to be calculated for the new instrument.
-    Returns
+    feature: 要为新金融工具计算的特征。
+    返回
     ----------
     Expression
-        feature operation output
+        特征运算输出
     """
 
     def __init__(self, instrument, feature):
@@ -87,7 +87,7 @@ class ChangeInstrument(ElemOperator):
         return "{}('{}',{})".format(type(self).__name__, self.instrument, self.feature)
 
     def load(self, instrument, start_index, end_index, *args):
-        # the first `instrument` is ignored
+        # 忽略第一个 `instrument`
         return super().load(self.instrument, start_index, end_index, *args)
 
     def _load_internal(self, instrument, start_index, end_index, *args):
@@ -95,19 +95,19 @@ class ChangeInstrument(ElemOperator):
 
 
 class NpElemOperator(ElemOperator):
-    """Numpy Element-wise Operator
+    """Numpy 逐元素运算符
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     func : str
-        numpy feature operation method
+        numpy 特征运算方法
 
-    Returns
+    返回
     ----------
     Expression
-        feature operation output
+        特征运算输出
     """
 
     def __init__(self, feature, func):
@@ -120,17 +120,17 @@ class NpElemOperator(ElemOperator):
 
 
 class Abs(NpElemOperator):
-    """Feature Absolute Value
+    """特征绝对值
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with absolute output
+        一个输出绝对值的特征实例
     """
 
     def __init__(self, feature):
@@ -138,17 +138,17 @@ class Abs(NpElemOperator):
 
 
 class Sign(NpElemOperator):
-    """Feature Sign
+    """特征符号
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with sign
+        一个带符号的特征实例
     """
 
     def __init__(self, feature):
@@ -156,26 +156,26 @@ class Sign(NpElemOperator):
 
     def _load_internal(self, instrument, start_index, end_index, *args):
         """
-        To avoid error raised by bool type input, we transform the data into float32.
+        为避免布尔类型输入引发错误，我们将数据转换为 float32。
         """
         series = self.feature.load(instrument, start_index, end_index, *args)
-        # TODO:  More precision types should be configurable
+        # TODO:  更多精度类型应可配置
         series = series.astype(np.float32)
         return getattr(np, self.func)(series)
 
 
 class Log(NpElemOperator):
-    """Feature Log
+    """特征对数
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with log
+        一个带对数的特征实例
     """
 
     def __init__(self, feature):
@@ -183,19 +183,19 @@ class Log(NpElemOperator):
 
 
 class Mask(NpElemOperator):
-    """Feature Mask
+    """特征掩码
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     instrument : str
-        instrument mask
+        金融工具掩码
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with masked instrument
+        一个带掩码金融工具的特征实例
     """
 
     def __init__(self, feature, instrument):
@@ -210,38 +210,38 @@ class Mask(NpElemOperator):
 
 
 class Not(NpElemOperator):
-    """Not Operator
+    """非运算符
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        feature elementwise not output
+        特征逐元素非运算输出
     """
 
     def __init__(self, feature):
         super(Not, self).__init__(feature, "bitwise_not")
 
 
-#################### Pair-Wise Operator ####################
+#################### 双目运算符 ####################
 class PairOperator(ExpressionOps):
-    """Pair-wise operator
+    """双目运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance or numeric value
+        特征实例或数值
     feature_right : Expression
-        feature instance or numeric value
+        特征实例或数值
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' operation output
+        两个特征的运算输出
     """
 
     def __init__(self, feature_left, feature_right):
@@ -277,21 +277,21 @@ class PairOperator(ExpressionOps):
 
 
 class NpPairOperator(PairOperator):
-    """Numpy Pair-wise operator
+    """Numpy 双目运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance or numeric value
+        特征实例或数值
     feature_right : Expression
-        feature instance or numeric value
+        特征实例或数值
     func : str
-        operator function
+        运算符函数
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' operation output
+        两个特征的运算输出
     """
 
     def __init__(self, feature_left, feature_right, func):
@@ -301,11 +301,11 @@ class NpPairOperator(PairOperator):
     def _load_internal(self, instrument, start_index, end_index, *args):
         assert any(
             [isinstance(self.feature_left, (Expression,)), self.feature_right, Expression]
-        ), "at least one of two inputs is Expression instance"
+        ), "两个输入中至少有一个是 Expression 实例"
         if isinstance(self.feature_left, (Expression,)):
             series_left = self.feature_left.load(instrument, start_index, end_index, *args)
         else:
-            series_left = self.feature_left  # numeric value
+            series_left = self.feature_left  # 数值
         if isinstance(self.feature_right, (Expression,)):
             series_right = self.feature_right.load(instrument, start_index, end_index, *args)
         else:
@@ -315,14 +315,14 @@ class NpPairOperator(PairOperator):
         )
         if check_length:
             warning_info = (
-                f"Loading {instrument}: {str(self)}; np.{self.func}(series_left, series_right), "
-                f"The length of series_left and series_right is different: ({len(series_left)}, {len(series_right)}), "
-                f"series_left is {str(self.feature_left)}, series_right is {str(self.feature_right)}. Please check the data"
+                f"加载 {instrument}: {str(self)}; np.{self.func}(series_left, series_right), "
+                f"series_left 和 series_right 的长度不同: ({len(series_left)}, {len(series_right)}), "
+                f"series_left 是 {str(self.feature_left)}, series_right 是 {str(self.feature_right)}. 请检查数据"
             )
         else:
             warning_info = (
-                f"Loading {instrument}: {str(self)}; np.{self.func}(series_left, series_right), "
-                f"series_left is {str(self.feature_left)}, series_right is {str(self.feature_right)}. Please check the data"
+                f"加载 {instrument}: {str(self)}; np.{self.func}(series_left, series_right), "
+                f"series_left 是 {str(self.feature_left)}, series_right 是 {str(self.feature_right)}. 请检查数据"
             )
         try:
             res = getattr(np, self.func)(series_left, series_right)
@@ -336,19 +336,19 @@ class NpPairOperator(PairOperator):
 
 
 class Power(NpPairOperator):
-    """Power Operator
+    """幂运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        The bases in feature_left raised to the exponents in feature_right
+        feature_left 中的基数乘以 feature_right 中的指数
     """
 
     def __init__(self, feature_left, feature_right):
@@ -356,19 +356,19 @@ class Power(NpPairOperator):
 
 
 class Add(NpPairOperator):
-    """Add Operator
+    """加法运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' sum
+        两个特征的和
     """
 
     def __init__(self, feature_left, feature_right):
@@ -376,19 +376,19 @@ class Add(NpPairOperator):
 
 
 class Sub(NpPairOperator):
-    """Subtract Operator
+    """减法运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' subtraction
+        两个特征的差
     """
 
     def __init__(self, feature_left, feature_right):
@@ -396,19 +396,19 @@ class Sub(NpPairOperator):
 
 
 class Mul(NpPairOperator):
-    """Multiply Operator
+    """乘法运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' product
+        两个特征的积
     """
 
     def __init__(self, feature_left, feature_right):
@@ -416,19 +416,19 @@ class Mul(NpPairOperator):
 
 
 class Div(NpPairOperator):
-    """Division Operator
+    """除法运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' division
+        两个特征的商
     """
 
     def __init__(self, feature_left, feature_right):
@@ -436,19 +436,19 @@ class Div(NpPairOperator):
 
 
 class Greater(NpPairOperator):
-    """Greater Operator
+    """较大值运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        greater elements taken from the input two features
+        从输入的两个特征中取出的较大元素
     """
 
     def __init__(self, feature_left, feature_right):
@@ -456,19 +456,19 @@ class Greater(NpPairOperator):
 
 
 class Less(NpPairOperator):
-    """Less Operator
+    """较小值运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        smaller elements taken from the input two features
+        从输入的两个特征中取出的较小元素
     """
 
     def __init__(self, feature_left, feature_right):
@@ -476,19 +476,19 @@ class Less(NpPairOperator):
 
 
 class Gt(NpPairOperator):
-    """Greater Than Operator
+    """大于运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        bool series indicate `left > right`
+        指示 `left > right` 的布尔序列
     """
 
     def __init__(self, feature_left, feature_right):
@@ -496,19 +496,19 @@ class Gt(NpPairOperator):
 
 
 class Ge(NpPairOperator):
-    """Greater Equal Than Operator
+    """大于等于运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        bool series indicate `left >= right`
+        指示 `left >= right` 的布尔序列
     """
 
     def __init__(self, feature_left, feature_right):
@@ -516,19 +516,19 @@ class Ge(NpPairOperator):
 
 
 class Lt(NpPairOperator):
-    """Less Than Operator
+    """小于运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        bool series indicate `left < right`
+        指示 `left < right` 的布尔序列
     """
 
     def __init__(self, feature_left, feature_right):
@@ -536,19 +536,19 @@ class Lt(NpPairOperator):
 
 
 class Le(NpPairOperator):
-    """Less Equal Than Operator
+    """小于等于运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        bool series indicate `left <= right`
+        指示 `left <= right` 的布尔序列
     """
 
     def __init__(self, feature_left, feature_right):
@@ -556,19 +556,19 @@ class Le(NpPairOperator):
 
 
 class Eq(NpPairOperator):
-    """Equal Operator
+    """等于运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        bool series indicate `left == right`
+        指示 `left == right` 的布尔序列
     """
 
     def __init__(self, feature_left, feature_right):
@@ -576,19 +576,19 @@ class Eq(NpPairOperator):
 
 
 class Ne(NpPairOperator):
-    """Not Equal Operator
+    """不等于运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        bool series indicate `left != right`
+        指示 `left != right` 的布尔序列
     """
 
     def __init__(self, feature_left, feature_right):
@@ -596,19 +596,19 @@ class Ne(NpPairOperator):
 
 
 class And(NpPairOperator):
-    """And Operator
+    """与运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' row by row & output
+        两个特征的逐行 & 输出
     """
 
     def __init__(self, feature_left, feature_right):
@@ -616,37 +616,37 @@ class And(NpPairOperator):
 
 
 class Or(NpPairOperator):
-    """Or Operator
+    """或运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     Feature:
-        two features' row by row | outputs
+        两个特征的逐行 | 输出
     """
 
     def __init__(self, feature_left, feature_right):
         super(Or, self).__init__(feature_left, feature_right, "bitwise_or")
 
 
-#################### Triple-wise Operator ####################
+#################### 三目运算符 ####################
 class If(ExpressionOps):
-    """If Operator
+    """If 运算符
 
-    Parameters
+    参数
     ----------
     condition : Expression
-        feature instance with bool values as condition
+        带布尔值的特征实例作为条件
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
     """
 
     def __init__(self, condition, feature_left, feature_right):
@@ -705,30 +705,30 @@ class If(ExpressionOps):
         return max(ll, rl, cl), max(lr, rr, cr)
 
 
-#################### Rolling ####################
-# NOTE: methods like `rolling.mean` are optimized with cython,
-# and are super faster than `rolling.apply(np.mean)`
+#################### 滚动 ####################
+# 注意：像 `rolling.mean` 这样的方法使用 cython 进行了优化，
+# 并且比 `rolling.apply(np.mean)` 快得多
 
 
 class Rolling(ExpressionOps):
-    """Rolling Operator
-    The meaning of rolling and expanding is the same in pandas.
-    When the window is set to 0, the behaviour of the operator should follow `expanding`
-    Otherwise, it follows `rolling`
+    """滚动运算符
+    在 pandas 中，rolling 和 expanding 的含义相同。
+    当窗口设置为 0 时，运算符的行为应遵循 `expanding`
+    否则，它遵循 `rolling`
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
     func : str
-        rolling method
+        滚动方法
 
-    Returns
+    返回
     ----------
     Expression
-        rolling outputs
+        滚动输出
     """
 
     def __init__(self, feature, N, func):
@@ -741,17 +741,12 @@ class Rolling(ExpressionOps):
 
     def _load_internal(self, instrument, start_index, end_index, *args):
         series = self.feature.load(instrument, start_index, end_index, *args)
-        # NOTE: remove all null check,
-        # now it's user's responsibility to decide whether use features in null days
-        # isnull = series.isnull() # NOTE: isnull = NaN, inf is not null
         if isinstance(self.N, int) and self.N == 0:
             series = getattr(series.expanding(min_periods=1), self.func)()
         elif isinstance(self.N, float) and 0 < self.N < 1:
             series = series.ewm(alpha=self.N, min_periods=1).mean()
         else:
             series = getattr(series.rolling(self.N, min_periods=1), self.func)()
-            # series.iloc[:self.N-1] = np.nan
-        # series[isnull] = np.nan
         return series
 
     def get_longest_back_rolling(self):
@@ -763,9 +758,7 @@ class Rolling(ExpressionOps):
 
     def get_extended_window_size(self):
         if self.N == 0:
-            # FIXME: How to make this accurate and efficiently? Or  should we
-            # remove such support for N == 0?
-            get_module_logger(self.__class__.__name__).warning("The Rolling(ATTR, 0) will not be accurately calculated")
+            get_module_logger(self.__class__.__name__).warning("Rolling(ATTR, 0) 的计算可能不准确")
             return self.feature.get_extended_window_size()
         elif 0 < self.N < 1:
             lft_etd, rght_etd = self.feature.get_extended_window_size()
@@ -779,19 +772,19 @@ class Rolling(ExpressionOps):
 
 
 class Ref(Rolling):
-    """Feature Reference
+    """特征引用
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        N = 0, retrieve the first data; N > 0, retrieve data of N periods ago; N < 0, future data
+        N = 0, 检索第一个数据；N > 0, 检索 N 个周期前的数据；N < 0, 未来数据
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with target reference
+        一个带目标引用的特征实例
     """
 
     def __init__(self, feature, N):
@@ -799,13 +792,12 @@ class Ref(Rolling):
 
     def _load_internal(self, instrument, start_index, end_index, *args):
         series = self.feature.load(instrument, start_index, end_index, *args)
-        # N = 0, return first day
         if series.empty:
-            return series  # Pandas bug, see: https://github.com/pandas-dev/pandas/issues/21049
+            return series
         elif self.N == 0:
             series = pd.Series(series.iloc[0], index=series.index)
         else:
-            series = series.shift(self.N)  # copy
+            series = series.shift(self.N)
         return series
 
     def get_longest_back_rolling(self):
@@ -815,7 +807,7 @@ class Ref(Rolling):
 
     def get_extended_window_size(self):
         if self.N == 0:
-            get_module_logger(self.__class__.__name__).warning("The Ref(ATTR, 0) will not be accurately calculated")
+            get_module_logger(self.__class__.__name__).warning("Ref(ATTR, 0) 的计算可能不准确")
             return self.feature.get_extended_window_size()
         else:
             lft_etd, rght_etd = self.feature.get_extended_window_size()
@@ -825,19 +817,19 @@ class Ref(Rolling):
 
 
 class Mean(Rolling):
-    """Rolling Mean (MA)
+    """滚动平均值 (MA)
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling average
+        一个带滚动平均值的特征实例
     """
 
     def __init__(self, feature, N):
@@ -845,19 +837,19 @@ class Mean(Rolling):
 
 
 class Sum(Rolling):
-    """Rolling Sum
+    """滚动求和
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling sum
+        一个带滚动和的特征实例
     """
 
     def __init__(self, feature, N):
@@ -865,19 +857,19 @@ class Sum(Rolling):
 
 
 class Std(Rolling):
-    """Rolling Std
+    """滚动标准差
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling std
+        一个带滚动标准差的特征实例
     """
 
     def __init__(self, feature, N):
@@ -885,19 +877,19 @@ class Std(Rolling):
 
 
 class Var(Rolling):
-    """Rolling Variance
+    """滚动方差
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling variance
+        一个带滚动方差的特征实例
     """
 
     def __init__(self, feature, N):
@@ -905,63 +897,63 @@ class Var(Rolling):
 
 
 class Skew(Rolling):
-    """Rolling Skewness
+    """滚动偏度
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling skewness
+        一个带滚动偏度的特征实例
     """
 
     def __init__(self, feature, N):
         if N != 0 and N < 3:
-            raise ValueError("The rolling window size of Skewness operation should >= 3")
+            raise ValueError("偏度运算的滚动窗口大小应 >= 3")
         super(Skew, self).__init__(feature, N, "skew")
 
 
 class Kurt(Rolling):
-    """Rolling Kurtosis
+    """滚动峰度
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling kurtosis
+        一个带滚动峰度的特征实例
     """
 
     def __init__(self, feature, N):
         if N != 0 and N < 4:
-            raise ValueError("The rolling window size of Kurtosis operation should >= 5")
+            raise ValueError("峰度运算的滚动窗口大小应 >= 4")
         super(Kurt, self).__init__(feature, N, "kurt")
 
 
 class Max(Rolling):
-    """Rolling Max
+    """滚动最大值
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling max
+        一个带滚动最大值的特征实例
     """
 
     def __init__(self, feature, N):
@@ -969,19 +961,19 @@ class Max(Rolling):
 
 
 class IdxMax(Rolling):
-    """Rolling Max Index
+    """滚动最大值索引
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling max index
+        一个带滚动最大值索引的特征实例
     """
 
     def __init__(self, feature, N):
@@ -997,19 +989,19 @@ class IdxMax(Rolling):
 
 
 class Min(Rolling):
-    """Rolling Min
+    """滚动最小值
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling min
+        一个带滚动最小值的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1017,19 +1009,19 @@ class Min(Rolling):
 
 
 class IdxMin(Rolling):
-    """Rolling Min Index
+    """滚动最小值索引
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling min index
+        一个带滚动最小值索引的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1045,19 +1037,19 @@ class IdxMin(Rolling):
 
 
 class Quantile(Rolling):
-    """Rolling Quantile
+    """滚动分位数
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling quantile
+        一个带滚动分位数的特征实例
     """
 
     def __init__(self, feature, N, qscore):
@@ -1077,19 +1069,19 @@ class Quantile(Rolling):
 
 
 class Med(Rolling):
-    """Rolling Median
+    """滚动中位数
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling median
+        一个带滚动中位数的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1097,19 +1089,19 @@ class Med(Rolling):
 
 
 class Mad(Rolling):
-    """Rolling Mean Absolute Deviation
+    """滚动平均绝对偏差
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling mean absolute deviation
+        一个带滚动平均绝对偏差的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1117,8 +1109,6 @@ class Mad(Rolling):
 
     def _load_internal(self, instrument, start_index, end_index, *args):
         series = self.feature.load(instrument, start_index, end_index, *args)
-        # TODO: implement in Cython
-
         def mad(x):
             x1 = x[~np.isnan(x)]
             return np.mean(np.abs(x1 - x1.mean()))
@@ -1131,25 +1121,24 @@ class Mad(Rolling):
 
 
 class Rank(Rolling):
-    """Rolling Rank (Percentile)
+    """滚动排名（百分位数）
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling rank
+        一个带滚动排名的特征实例
     """
 
     def __init__(self, feature, N):
         super(Rank, self).__init__(feature, N, "rank")
 
-    # for compatiblity of python 3.7, which doesn't support pandas 1.4.0+ which implements Rolling.rank
     def _load_internal(self, instrument, start_index, end_index, *args):
         series = self.feature.load(instrument, start_index, end_index, *args)
 
@@ -1169,19 +1158,19 @@ class Rank(Rolling):
 
 
 class Count(Rolling):
-    """Rolling Count
+    """滚动计数
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling count of number of non-NaN elements
+        一个带滚动非 NaN 元素计数的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1189,19 +1178,19 @@ class Count(Rolling):
 
 
 class Delta(Rolling):
-    """Rolling Delta
+    """滚动差值
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with end minus start in rolling window
+        一个带滚动窗口中结束值减去开始值的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1216,30 +1205,25 @@ class Delta(Rolling):
         return series
 
 
-# TODO:
-# support pair-wise rolling like `Slope(A, B, N)`
 class Slope(Rolling):
-    """Rolling Slope
-    This operator calculate the slope between `idx` and `feature`.
-    (e.g. [<feature_t1>, <feature_t2>, <feature_t3>] and [1, 2, 3])
+    """滚动斜率
+    此运算符计算 `idx` 和 `feature` 之间的斜率。
+    （例如 [<feature_t1>, <feature_t2>, <feature_t3>] 和 [1, 2, 3]）
 
-    Usage Example:
+    用法示例：
     - "Slope($close, %d)/$close"
 
-    # TODO:
-    # Some users may want pair-wise rolling like `Slope(A, B, N)`
-
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with linear regression slope of given window
+        一个带给定窗口线性回归斜率的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1255,19 +1239,19 @@ class Slope(Rolling):
 
 
 class Rsquare(Rolling):
-    """Rolling R-value Square
+    """滚动 R 平方值
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with linear regression r-value square of given window
+        一个带给定窗口线性回归 R 平方值的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1284,19 +1268,19 @@ class Rsquare(Rolling):
 
 
 class Resi(Rolling):
-    """Rolling Regression Residuals
+    """滚动回归残差
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with regression residuals of given window
+        一个带给定窗口回归残差的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1312,19 +1296,19 @@ class Resi(Rolling):
 
 
 class WMA(Rolling):
-    """Rolling WMA
+    """滚动加权移动平均
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with weighted moving average output
+        一个带加权移动平均输出的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1332,8 +1316,6 @@ class WMA(Rolling):
 
     def _load_internal(self, instrument, start_index, end_index, *args):
         series = self.feature.load(instrument, start_index, end_index, *args)
-        # TODO: implement in Cython
-
         def weighted_mean(x):
             w = np.arange(len(x)) + 1
             w = w / w.sum()
@@ -1347,19 +1329,19 @@ class WMA(Rolling):
 
 
 class EMA(Rolling):
-    """Rolling Exponential Mean (EMA)
+    """滚动指数移动平均 (EMA)
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     N : int, float
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with regression r-value square of given window
+        一个带指数移动平均输出的特征实例
     """
 
     def __init__(self, feature, N):
@@ -1383,27 +1365,26 @@ class EMA(Rolling):
         return series
 
 
-#################### Pair-Wise Rolling ####################
+#################### 双特征滚动 ####################
 class PairRolling(ExpressionOps):
-    """Pair Rolling Operator
+    """双特征滚动运算符
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling output of two input features
+        一个带两个输入特征滚动输出的特征实例
     """
 
     def __init__(self, feature_left, feature_right, N, func):
-        # TODO: in what case will a const be passed into `__init__` as `feature_left` or `feature_right`
         self.feature_left = feature_left
         self.feature_right = feature_right
         self.N = N
@@ -1415,12 +1396,12 @@ class PairRolling(ExpressionOps):
     def _load_internal(self, instrument, start_index, end_index, *args):
         assert any(
             [isinstance(self.feature_left, Expression), self.feature_right, Expression]
-        ), "at least one of two inputs is Expression instance"
+        ), "两个输入中至少有一个是 Expression 实例"
 
         if isinstance(self.feature_left, Expression):
             series_left = self.feature_left.load(instrument, start_index, end_index, *args)
         else:
-            series_left = self.feature_left  # numeric value
+            series_left = self.feature_left
         if isinstance(self.feature_right, Expression):
             series_right = self.feature_right.load(instrument, start_index, end_index, *args)
         else:
@@ -1457,7 +1438,7 @@ class PairRolling(ExpressionOps):
             rl, rr = 0, 0
         if self.N == 0:
             get_module_logger(self.__class__.__name__).warning(
-                "The PairRolling(ATTR, 0) will not be accurately calculated"
+                "PairRolling(ATTR, 0) 的计算可能不准确"
             )
             return -np.inf, max(lr, rr)
         else:
@@ -1465,21 +1446,21 @@ class PairRolling(ExpressionOps):
 
 
 class Corr(PairRolling):
-    """Rolling Correlation
+    """滚动相关性
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling correlation of two input features
+        一个带两个输入特征滚动相关性的特征实例
     """
 
     def __init__(self, feature_left, feature_right, N):
@@ -1488,7 +1469,6 @@ class Corr(PairRolling):
     def _load_internal(self, instrument, start_index, end_index, *args):
         res: pd.Series = super(Corr, self)._load_internal(instrument, start_index, end_index, *args)
 
-        # NOTE: Load uses MemCache, so calling load again will not cause performance degradation
         series_left = self.feature_left.load(instrument, start_index, end_index, *args)
         series_right = self.feature_right.load(instrument, start_index, end_index, *args)
         res.loc[
@@ -1499,49 +1479,44 @@ class Corr(PairRolling):
 
 
 class Cov(PairRolling):
-    """Rolling Covariance
+    """滚动协方差
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance
+        特征实例
     feature_right : Expression
-        feature instance
+        特征实例
     N : int
-        rolling window size
+        滚动窗口大小
 
-    Returns
+    返回
     ----------
     Expression
-        a feature instance with rolling max of two input features
+        一个带两个输入特征滚动协方差的特征实例
     """
 
     def __init__(self, feature_left, feature_right, N):
         super(Cov, self).__init__(feature_left, feature_right, N, "cov")
 
 
-#################### Operator which only support data with time index ####################
-# Convention
-# - The name of the operators in this section will start with "T"
-
-
+#################### 仅支持带时间索引的数据的运算符 ####################
 class TResample(ElemOperator):
     def __init__(self, feature, freq, func):
         """
-        Resampling the data to target frequency.
-        The resample function of pandas is used.
+        将数据重采样到目标频率。
+        使用 pandas 的 resample 函数。
 
-        - the timestamp will be at the start of the time span after resample.
+        - 重采样后，时间戳将位于时间跨度的开始。
 
-        Parameters
+        参数
         ----------
         feature : Expression
-            An expression for calculating the feature
+            用于计算特征的表达式
         freq : str
-            It will be passed into the resample method for resampling basedn on given frequency
+            它将被传递到 resample 方法中，以基于给定频率进行重采样
         func : method
-            The method to get the resampled values
-            Some expression are high frequently used
+            获取重采样值的方法
         """
         self.feature = feature
         self.freq = freq
@@ -1617,7 +1592,7 @@ OpsList = [
 
 
 class OpsWrapper:
-    """Ops Wrapper"""
+    """运算符包装器"""
 
     def __init__(self):
         self._ops = {}
@@ -1626,13 +1601,13 @@ class OpsWrapper:
         self._ops = {}
 
     def register(self, ops_list: List[Union[Type[ExpressionOps], dict]]):
-        """register operator
+        """注册运算符
 
-        Parameters
+        参数
         ----------
         ops_list : List[Union[Type[ExpressionOps], dict]]
-            - if type(ops_list) is List[Type[ExpressionOps]], each element of ops_list represents the operator class, which should be the subclass of `ExpressionOps`.
-            - if type(ops_list) is List[dict], each element of ops_list represents the config of operator, which has the following format:
+            - 如果 type(ops_list) 是 List[Type[ExpressionOps]]，ops_list 的每个元素代表运算符类，它应该是 `ExpressionOps` 的子类。
+            - 如果 type(ops_list) 是 List[dict]，ops_list 的每个元素代表运算符的配置，格式如下：
 
                 .. code-block:: text
 
@@ -1641,7 +1616,7 @@ class OpsWrapper:
                         "module_path": path,
                     }
 
-                Note: `class` should be the class name of operator, `module_path` should be a python module or path of file.
+                注意：`class` 应该是运算符的类名，`module_path` 应该是一个 python 模块或文件路径。
         """
         for _operator in ops_list:
             if isinstance(_operator, dict):
@@ -1650,17 +1625,17 @@ class OpsWrapper:
                 _ops_class = _operator
 
             if not issubclass(_ops_class, (Expression,)):
-                raise TypeError("operator must be subclass of ExpressionOps, not {}".format(_ops_class))
+                raise TypeError("运算符必须是 ExpressionOps 的子类，而不是 {}".format(_ops_class))
 
             if _ops_class.__name__ in self._ops:
                 get_module_logger(self.__class__.__name__).warning(
-                    "The custom operator [{}] will override the qlib default definition".format(_ops_class.__name__)
+                    "自定义运算符 [{}] 将覆盖 qlib 默认定义".format(_ops_class.__name__)
                 )
             self._ops[_ops_class.__name__] = _ops_class
 
     def __getattr__(self, key):
         if key not in self._ops:
-            raise AttributeError("The operator [{0}] is not registered".format(key))
+            raise AttributeError("运算符 [{0}] 未注册".format(key))
         return self._ops[key]
 
 
@@ -1668,14 +1643,14 @@ Operators = OpsWrapper()
 
 
 def register_all_ops(C):
-    """register all operator"""
+    """注册所有运算符"""
     logger = get_module_logger("ops")
 
-    from qlib.data.pit import P, PRef  # pylint: disable=C0415
+    from qlib.data.pit import P, PRef
 
     Operators.reset()
     Operators.register(OpsList + [P, PRef])
 
     if getattr(C, "custom_ops", None) is not None:
         Operators.register(C.custom_ops)
-        logger.debug("register custom operator {}".format(C.custom_ops))
+        logger.debug("注册自定义运算符 {}".format(C.custom_ops))

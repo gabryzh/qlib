@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from typing import List, Union, Optional
 
-# For supporting multiprocessing in outer code, joblib is used
+# 为了支持外部代码中的多进程，这里使用了 joblib
 from joblib import delayed
 
 from .cache import H
@@ -42,20 +42,22 @@ from .ops import Operators  # pylint: disable=W0611  # noqa: F401
 
 class ProviderBackendMixin:
     """
-    This helper class tries to make the provider based on storage backend more convenient
-    It is not necessary to inherent this class if that provider don't rely on the backend storage
+    这个辅助类旨在使基于存储后端的提供者更加方便。
+    如果提供者不依赖于后端存储，则无需继承此类。
     """
 
     def get_default_backend(self):
+        """获取默认的后端配置"""
         backend = {}
         provider_name: str = re.findall("[A-Z][^A-Z]*", self.__class__.__name__)[-2]
-        # set default storage class
+        # 设置默认存储类
         backend.setdefault("class", f"File{provider_name}Storage")
-        # set default storage module
+        # 设置默认存储模块路径
         backend.setdefault("module_path", "qlib.data.storage.file_storage")
         return backend
 
     def backend_obj(self, **kwargs):
+        """根据配置初始化后端对象"""
         backend = self.backend if self.backend else self.get_default_backend()
         backend = copy.deepcopy(backend)
         backend.setdefault("kwargs", {}).update(**kwargs)
@@ -63,36 +65,36 @@ class ProviderBackendMixin:
 
 
 class CalendarProvider(abc.ABC):
-    """Calendar provider base class
+    """日历提供者基类
 
-    Provide calendar data.
+    提供日历数据。
     """
 
     def calendar(self, start_time=None, end_time=None, freq="day", future=False):
-        """Get calendar of certain market in given time range.
+        """在给定时间范围内获取特定市场的日历。
 
-        Parameters
+        参数
         ----------
         start_time : str
-            start of the time range.
+            时间范围的开始。
         end_time : str
-            end of the time range.
+            时间范围的结束。
         freq : str
-            time frequency, available: year/quarter/month/week/day.
+            时间频率，可用值：year/quarter/month/week/day。
         future : bool
-            whether including future trading day.
+            是否包括未来的交易日。
 
-        Returns
+        返回
         ----------
         list
-            calendar list
+            日历列表
         """
         _calendar, _calendar_index = self._get_calendar(freq, future)
         if start_time == "None":
             start_time = None
         if end_time == "None":
             end_time = None
-        # strip
+        # 裁剪
         if start_time:
             start_time = pd.Timestamp(start_time)
             if start_time > _calendar[-1]:
@@ -111,29 +113,29 @@ class CalendarProvider(abc.ABC):
     def locate_index(
         self, start_time: Union[pd.Timestamp, str], end_time: Union[pd.Timestamp, str], freq: str, future: bool = False
     ):
-        """Locate the start time index and end time index in a calendar under certain frequency.
+        """在特定频率的日历中定位开始时间和结束时间的索引。
 
-        Parameters
+        参数
         ----------
         start_time : pd.Timestamp
-            start of the time range.
+            时间范围的开始。
         end_time : pd.Timestamp
-            end of the time range.
+            时间范围的结束。
         freq : str
-            time frequency, available: year/quarter/month/week/day.
+            时间频率，可用值：year/quarter/month/week/day。
         future : bool
-            whether including future trading day.
+            是否包括未来的交易日。
 
-        Returns
+        返回
         -------
         pd.Timestamp
-            the real start time.
+            实际的开始时间。
         pd.Timestamp
-            the real end time.
+            实际的结束时间。
         int
-            the index of start time.
+            开始时间的索引。
         int
-            the index of end time.
+            结束时间的索引。
         """
         start_time = pd.Timestamp(start_time)
         end_time = pd.Timestamp(end_time)
@@ -143,7 +145,7 @@ class CalendarProvider(abc.ABC):
                 start_time = calendar[bisect.bisect_left(calendar, start_time)]
             except IndexError as index_e:
                 raise IndexError(
-                    "`start_time` uses a future date, if you want to get future trading days, you can use: `future=True`"
+                    "`start_time` 使用了一个未来的日期，如果你想获取未来的交易日，可以使用 `future=True`"
                 ) from index_e
         start_index = calendar_index[start_time]
         if end_time not in calendar_index:
@@ -152,78 +154,78 @@ class CalendarProvider(abc.ABC):
         return start_time, end_time, start_index, end_index
 
     def _get_calendar(self, freq, future):
-        """Load calendar using memcache.
+        """使用内存缓存加载日历。
 
-        Parameters
+        参数
         ----------
         freq : str
-            frequency of read calendar file.
+            读取日历文件的频率。
         future : bool
-            whether including future trading day.
+            是否包括未来的交易日。
 
-        Returns
+        返回
         -------
         list
-            list of timestamps.
+            时间戳列表。
         dict
-            dict composed by timestamp as key and index as value for fast search.
+            以时间戳为键、索引为值的字典，用于快速搜索。
         """
         flag = f"{freq}_future_{future}"
         if flag not in H["c"]:
             _calendar = np.array(self.load_calendar(freq, future))
-            _calendar_index = {x: i for i, x in enumerate(_calendar)}  # for fast search
+            _calendar_index = {x: i for i, x in enumerate(_calendar)}  # 用于快速搜索
             H["c"][flag] = _calendar, _calendar_index
         return H["c"][flag]
 
     def _uri(self, start_time, end_time, freq, future=False):
-        """Get the uri of calendar generation task."""
+        """获取日历生成任务的 URI。"""
         return hash_args(start_time, end_time, freq, future)
 
     def load_calendar(self, freq, future):
-        """Load original calendar timestamp from file.
+        """从文件加载原始日历时间戳。
 
-        Parameters
+        参数
         ----------
         freq : str
-            frequency of read calendar file.
+            读取日历文件的频率。
         future: bool
 
-        Returns
+        返回
         ----------
         list
-            list of timestamps
+            时间戳列表
         """
-        raise NotImplementedError("Subclass of CalendarProvider must implement `load_calendar` method")
+        raise NotImplementedError("CalendarProvider 的子类必须实现 `load_calendar` 方法")
 
 
 class InstrumentProvider(abc.ABC):
-    """Instrument provider base class
+    """金融工具提供者基类
 
-    Provide instrument data.
+    提供金融工具数据。
     """
 
     @staticmethod
     def instruments(market: Union[List, str] = "all", filter_pipe: Union[List, None] = None):
-        """Get the general config dictionary for a base market adding several dynamic filters.
+        """获取基础市场添加多个动态过滤器后的一般配置字典。
 
-        Parameters
+        参数
         ----------
         market : Union[List, str]
             str:
-                market/industry/index shortname, e.g. all/sse/szse/sse50/csi300/csi500.
+                市场/行业/指数简称，例如 all/sse/szse/sse50/csi300/csi500。
             list:
-                ["ID1", "ID2"]. A list of stocks
+                ["ID1", "ID2"]。一个股票列表。
         filter_pipe : list
-            the list of dynamic filters.
+            动态过滤器列表。
 
-        Returns
+        返回
         ----------
         dict: if isinstance(market, str)
-            dict of stockpool config.
+            股票池配置字典。
 
-            {`market` => base market name, `filter_pipe` => list of filters}
+            {`market` => 基础市场名称, `filter_pipe` => 过滤器列表}
 
-            example :
+            示例 :
 
             .. code-block::
 
@@ -239,8 +241,8 @@ class InstrumentProvider(abc.ABC):
                 'filter_end_time': None}]}
 
         list: if isinstance(market, list)
-            just return the original list directly.
-            NOTE: this will make the instruments compatible with more cases. The user code will be simpler.
+            直接返回原始列表。
+            注意：这将使金融工具与更多情况兼容，用户代码将更简单。
         """
         if isinstance(market, list):
             return market
@@ -249,8 +251,7 @@ class InstrumentProvider(abc.ABC):
         if filter_pipe is None:
             filter_pipe = []
         config = {"market": market, "filter_pipe": []}
-        # the order of the filters will affect the result, so we need to keep
-        # the order
+        # 过滤器的顺序会影响结果，所以我们需要保持顺序
         for filter_t in filter_pipe:
             if isinstance(filter_t, dict):
                 _config = filter_t
@@ -258,37 +259,37 @@ class InstrumentProvider(abc.ABC):
                 _config = filter_t.to_config()
             else:
                 raise TypeError(
-                    f"Unsupported filter types: {type(filter_t)}! Filter only supports dict or isinstance(filter, SeriesDFilter)"
+                    f"不支持的过滤器类型: {type(filter_t)}！过滤器只支持 dict 或 isinstance(filter, SeriesDFilter)"
                 )
             config["filter_pipe"].append(_config)
         return config
 
     @abc.abstractmethod
     def list_instruments(self, instruments, start_time=None, end_time=None, freq="day", as_list=False):
-        """List the instruments based on a certain stockpool config.
+        """根据特定的股票池配置列出金融工具。
 
-        Parameters
+        参数
         ----------
         instruments : dict
-            stockpool config.
+            股票池配置。
         start_time : str
-            start of the time range.
+            时间范围的开始。
         end_time : str
-            end of the time range.
+            时间范围的结束。
         as_list : bool
-            return instruments as list or dict.
+            以列表或字典形式返回金融工具。
 
-        Returns
+        返回
         -------
         dict or list
-            instruments list or dictionary with time spans
+            金融工具列表或带时间跨度的字典
         """
-        raise NotImplementedError("Subclass of InstrumentProvider must implement `list_instruments` method")
+        raise NotImplementedError("InstrumentProvider 的子类必须实现 `list_instruments` 方法")
 
     def _uri(self, instruments, start_time=None, end_time=None, freq="day", as_list=False):
         return hash_args(instruments, start_time, end_time, freq, as_list)
 
-    # instruments type
+    # instruments 类型
     LIST = "LIST"
     DICT = "DICT"
     CONF = "CONF"
@@ -301,41 +302,42 @@ class InstrumentProvider(abc.ABC):
             return cls.DICT
         if isinstance(inst, (list, tuple, pd.Index, np.ndarray)):
             return cls.LIST
-        raise ValueError(f"Unknown instrument type {inst}")
+        raise ValueError(f"未知的金融工具类型 {inst}")
 
 
 class FeatureProvider(abc.ABC):
-    """Feature provider class
+    """特征提供者类
 
-    Provide feature data.
+    提供特征数据。
     """
 
     @abc.abstractmethod
     def feature(self, instrument, field, start_time, end_time, freq):
-        """Get feature data.
+        """获取特征数据。
 
-        Parameters
+        参数
         ----------
         instrument : str
-            a certain instrument.
+            一个特定的金融工具。
         field : str
-            a certain field of feature.
+            特征的特定字段。
         start_time : str
-            start of the time range.
+            时间范围的开始。
         end_time : str
-            end of the time range.
+            时间范围的结束。
         freq : str
-            time frequency, available: year/quarter/month/week/day.
+            时间频率，可用值：year/quarter/month/week/day。
 
-        Returns
+        返回
         -------
         pd.Series
-            data of a certain feature
+            特定特征的数据
         """
-        raise NotImplementedError("Subclass of FeatureProvider must implement `feature` method")
+        raise NotImplementedError("FeatureProvider 的子类必须实现 `feature` 方法")
 
 
 class PITProvider(abc.ABC):
+    """切点（Point-In-Time）数据提供者基类"""
     @abc.abstractmethod
     def period_feature(
         self,
@@ -347,49 +349,50 @@ class PITProvider(abc.ABC):
         period: Optional[int] = None,
     ) -> pd.Series:
         """
-        get the historical periods data series between `start_index` and `end_index`
+        获取 `start_index` 和 `end_index` 之间的历史时期数据序列
 
-        Parameters
+        参数
         ----------
         start_index: int
-            start_index is a relative index to the latest period to cur_time
+            start_index 是相对于 cur_time 最新时期的相对索引
 
         end_index: int
-            end_index is a relative index to the latest period to cur_time
-            in most cases, the start_index and end_index will be a non-positive values
-            For example, start_index == -3 end_index == 0 and current period index is cur_idx,
-            then the data between [start_index + cur_idx, end_index + cur_idx] will be retrieved.
+            end_index 是相对于 cur_time 最新时期的相对索引
+            在大多数情况下，start_index 和 end_index 都是非正值
+            例如，start_index == -3, end_index == 0，当前时期索引为 cur_idx,
+            那么将检索 [start_index + cur_idx, end_index + cur_idx] 之间的数据。
 
         period: int
-            This is used for query specific period.
-            The period is represented with int in Qlib. (e.g. 202001 may represent the first quarter in 2020)
-            NOTE: `period`  will override `start_index` and `end_index`
+            用于查询特定时期。
+            在 Qlib 中，时期用整数表示（例如 202001 可能代表 2020 年第一季度）
+            注意：`period` 会覆盖 `start_index` 和 `end_index`
 
-        Returns
+        返回
         -------
         pd.Series
-            The index will be integers to indicate the periods of the data
-            An typical examples will be
+            索引将是整数，表示数据的时期
+            一个典型的例子将是
             TODO
 
-        Raises
+        异常
         ------
         FileNotFoundError
-            This exception will be raised if the queried data do not exist.
+            如果查询的数据不存在，将引发此异常。
         """
-        raise NotImplementedError(f"Please implement the `period_feature` method")
+        raise NotImplementedError(f"请实现 `period_feature` 方法")
 
 
 class ExpressionProvider(abc.ABC):
-    """Expression provider class
+    """表达式提供者类
 
-    Provide Expression data.
+    提供表达式数据。
     """
 
     def __init__(self):
         self.expression_instance_cache = {}
 
     def get_expression_instance(self, field):
+        """获取表达式实例"""
         try:
             if field in self.expression_instance_cache:
                 expression = self.expression_instance_cache[field]
@@ -398,82 +401,82 @@ class ExpressionProvider(abc.ABC):
                 self.expression_instance_cache[field] = expression
         except NameError as e:
             get_module_logger("data").exception(
-                "ERROR: field [%s] contains invalid operator/variable [%s]" % (str(field), str(e).split()[1])
+                "错误：字段 [%s] 包含无效的运算符/变量 [%s]" % (str(field), str(e).split()[1])
             )
             raise
         except SyntaxError:
-            get_module_logger("data").exception("ERROR: field [%s] contains invalid syntax" % str(field))
+            get_module_logger("data").exception("错误：字段 [%s] 包含无效的语法" % str(field))
             raise
         return expression
 
     @abc.abstractmethod
     def expression(self, instrument, field, start_time=None, end_time=None, freq="day") -> pd.Series:
-        """Get Expression data.
+        """获取表达式数据。
 
-        The responsibility of `expression`
-        - parse the `field` and `load` the according data.
-        - When loading the data, it should handle the time dependency of the data. `get_expression_instance` is commonly used in this method
+        `expression` 的职责
+        - 解析 `field` 并 `load` 相应的数据。
+        - 加载数据时，应处理数据的时间依赖性。`get_expression_instance` 通常在此方法中使用
 
-        Parameters
+        参数
         ----------
         instrument : str
-            a certain instrument.
+            一个特定的金融工具。
         field : str
-            a certain field of feature.
+            特征的特定字段。
         start_time : str
-            start of the time range.
+            时间范围的开始。
         end_time : str
-            end of the time range.
+            时间范围的结束。
         freq : str
-            time frequency, available: year/quarter/month/week/day.
+            时间频率，可用值：year/quarter/month/week/day。
 
-        Returns
+        返回
         -------
         pd.Series
-            data of a certain expression
+            特定表达式的数据
 
-            The data has two types of format
+            数据有两种格式
 
-            1) expression with datetime index
+            1) 带日期时间索引的表达式
 
-            2) expression with integer index
+            2) 带整数索引的表达式
 
-                - because the datetime is not as good as
+                - 因为日期时间不如整数索引高效
         """
-        raise NotImplementedError("Subclass of ExpressionProvider must implement `Expression` method")
+        raise NotImplementedError("ExpressionProvider 的子类必须实现 `Expression` 方法")
 
 
 class DatasetProvider(abc.ABC):
-    """Dataset provider class
+    """数据集提供者类
 
-    Provide Dataset data.
+    提供数据集数据。
     """
 
     @abc.abstractmethod
     def dataset(self, instruments, fields, start_time=None, end_time=None, freq="day", inst_processors=[]):
-        """Get dataset data.
+        """获取数据集数据。
 
-        Parameters
+        参数
         ----------
         instruments : list or dict
-            list/dict of instruments or dict of stockpool config.
+            金融工具列表/字典或股票池配置字典。
         fields : list
-            list of feature instances.
+            特征实例列表。
         start_time : str
-            start of the time range.
+            时间范围的开始。
         end_time : str
-            end of the time range.
+            时间范围的结束。
         freq : str
-            time frequency.
+            时间频率。
         inst_processors:  Iterable[Union[dict, InstProcessor]]
-            the operations performed on each instrument
+            对每个金融工具执行的操作
 
-        Returns
+        返回
         ----------
         pd.DataFrame
-            a pandas dataframe with <instrument, datetime> index.
+            一个带有 <instrument, datetime> 索引的 pandas DataFrame。
         """
-        raise NotImplementedError("Subclass of DatasetProvider must implement `Dataset` method")
+        raise NotImplementedError("DatasetProvider 的子类必须实现 `Dataset` 方法")
 
     def _uri(
         self,
@@ -486,76 +489,76 @@ class DatasetProvider(abc.ABC):
         inst_processors=[],
         **kwargs,
     ):
-        """Get task uri, used when generating rabbitmq task in qlib_server
+        """获取任务 URI，用于在 qlib_server 中生成 rabbitmq 任务
 
-        Parameters
+        参数
         ----------
         instruments : list or dict
-            list/dict of instruments or dict of stockpool config.
+            金融工具列表/字典或股票池配置字典。
         fields : list
-            list of feature instances.
+            特征实例列表。
         start_time : str
-            start of the time range.
+            时间范围的开始。
         end_time : str
-            end of the time range.
+            时间范围的结束。
         freq : str
-            time frequency.
+            时间频率。
         disk_cache : int
-            whether to skip(0)/use(1)/replace(2) disk_cache.
+            是否跳过(0)/使用(1)/替换(2)磁盘缓存。
 
         """
-        # TODO: qlib-server support inst_processors
+        # TODO: qlib-server 支持 inst_processors
         return DiskDatasetCache._uri(instruments, fields, start_time, end_time, freq, disk_cache, inst_processors)
 
     @staticmethod
     def get_instruments_d(instruments, freq):
         """
-        Parse different types of input instruments to output instruments_d
-        Wrong format of input instruments will lead to exception.
+        将不同类型的输入 instruments 解析为输出 instruments_d
+        错误的输入 instruments 格式将导致异常。
 
         """
         if isinstance(instruments, dict):
             if "market" in instruments:
-                # dict of stockpool config
+                # 股票池配置字典
                 instruments_d = Inst.list_instruments(instruments=instruments, freq=freq, as_list=False)
             else:
-                # dict of instruments and timestamp
+                # 金融工具和时间戳字典
                 instruments_d = instruments
         elif isinstance(instruments, (list, tuple, pd.Index, np.ndarray)):
-            # list or tuple of a group of instruments
+            # 一组金融工具的列表或元组
             instruments_d = list(instruments)
         else:
-            raise ValueError("Unsupported input type for param `instrument`")
+            raise ValueError("参数 `instrument` 的输入类型不支持")
         return instruments_d
 
     @staticmethod
     def get_column_names(fields):
         """
-        Get column names from input fields
+        从输入字段获取列名
 
         """
         if len(fields) == 0:
-            raise ValueError("fields cannot be empty")
+            raise ValueError("字段不能为空")
         column_names = [str(f) for f in fields]
         return column_names
 
     @staticmethod
     def parse_fields(fields):
-        # parse and check the input fields
+        # 解析并检查输入字段
         return [ExpressionD.get_expression_instance(f) for f in fields]
 
     @staticmethod
     def dataset_processor(instruments_d, column_names, start_time, end_time, freq, inst_processors=[]):
         """
-        Load and process the data, return the data set.
-        - default using multi-kernel method.
+        加载和处理数据，返回数据集。
+        - 默认使用多核方法。
 
         """
         normalize_column_names = normalize_cache_fields(column_names)
-        # One process for one task, so that the memory will be freed quicker.
+        # 每个任务一个进程，以便更快地释放内存。
         workers = max(min(C.get_kernels(freq), len(instruments_d)), 1)
 
-        # create iterator
+        # 创建迭代器
         if isinstance(instruments_d, dict):
             it = instruments_d.items()
         else:
@@ -581,7 +584,7 @@ class DatasetProvider(abc.ABC):
         new_data = dict()
         for inst in sorted(data.keys()):
             if len(data[inst]) > 0:
-                # NOTE: Python version >= 3.6; in versions after python3.6, dict will always guarantee the insertion order
+                # 注意：Python 版本 >= 3.6；在 python3.6 之后的版本中，dict 总是保证插入顺序
                 new_data[inst] = data[inst]
 
         if len(new_data) > 0:
@@ -599,24 +602,24 @@ class DatasetProvider(abc.ABC):
     @staticmethod
     def inst_calculator(inst, start_time, end_time, freq, column_names, spans=None, g_config=None, inst_processors=[]):
         """
-        Calculate the expressions for **one** instrument, return a df result.
-        If the expression has been calculated before, load from cache.
+        计算**一个**金融工具的表达式，返回一个 df 结果。
+        如果表达式之前已经计算过，则从缓存加载。
 
-        return value: A data frame with index 'datetime' and other data columns.
+        返回值：一个索引为 'datetime' 和其他数据列的数据帧。
 
         """
         # FIXME: Windows OS or MacOS using spawn: https://docs.python.org/3.8/library/multiprocessing.html?highlight=spawn#contexts-and-start-methods
-        # NOTE: This place is compatible with windows, windows multi-process is spawn
+        # 注意：此处与 windows 兼容，windows 多进程是 spawn
         C.register_from_C(g_config)
 
         obj = dict()
         for field in column_names:
-            #  The client does not have expression provider, the data will be loaded from cache using static method.
+            #  客户端没有表达式提供者，数据将使用静态方法从缓存加载。
             obj[field] = ExpressionD.expression(inst, field, start_time, end_time, freq)
 
         data = pd.DataFrame(obj)
         if not data.empty and not np.issubdtype(data.index.dtype, np.dtype("M")):
-            # If the underlaying provides the data not in datetime format, we'll convert it into datetime format
+            # 如果底层提供的数据不是日期时间格式，我们将其转换为日期时间格式
             _calendar = Cal.calendar(freq=freq)
             data.index = _calendar[data.index.values.astype(int)]
         data.index.names = ["datetime"]
@@ -635,9 +638,9 @@ class DatasetProvider(abc.ABC):
 
 
 class LocalCalendarProvider(CalendarProvider, ProviderBackendMixin):
-    """Local calendar data provider class
+    """本地日历数据提供者类
 
-    Provide calendar data from local data source.
+    从本地数据源提供日历数据。
     """
 
     def __init__(self, remote=False, backend={}):
@@ -646,27 +649,27 @@ class LocalCalendarProvider(CalendarProvider, ProviderBackendMixin):
         self.backend = backend
 
     def load_calendar(self, freq, future):
-        """Load original calendar timestamp from file.
+        """从文件加载原始日历时间戳。
 
-        Parameters
+        参数
         ----------
         freq : str
-            frequency of read calendar file.
+            读取日历文件的频率。
         future: bool
-        Returns
+        返回
         ----------
         list
-            list of timestamps
+            时间戳列表
         """
         try:
             backend_obj = self.backend_obj(freq=freq, future=future).data
         except ValueError:
             if future:
                 get_module_logger("data").warning(
-                    f"load calendar error: freq={freq}, future={future}; return current calendar!"
+                    f"加载日历时出错：freq={freq}, future={future}; 返回当前日历！"
                 )
                 get_module_logger("data").warning(
-                    "You can get future calendar by referring to the following document: https://github.com/microsoft/qlib/blob/main/scripts/data_collector/contrib/README.md"
+                    "你可以通过参考以下文档获取未来日历：https://github.com/microsoft/qlib/blob/main/scripts/data_collector/contrib/README.md"
                 )
                 backend_obj = self.backend_obj(freq=freq, future=False).data
             else:
@@ -676,9 +679,9 @@ class LocalCalendarProvider(CalendarProvider, ProviderBackendMixin):
 
 
 class LocalInstrumentProvider(InstrumentProvider, ProviderBackendMixin):
-    """Local instrument data provider class
+    """本地金融工具数据提供者类
 
-    Provide instrument data from local data source.
+    从本地数据源提供金融工具数据。
     """
 
     def __init__(self, backend={}) -> None:
@@ -695,8 +698,8 @@ class LocalInstrumentProvider(InstrumentProvider, ProviderBackendMixin):
         else:
             _instruments = self._load_instruments(market, freq=freq)
             H["i"][market] = _instruments
-        # strip
-        # use calendar boundary
+        # 裁剪
+        # 使用日历边界
         cal = Cal.calendar(freq=freq)
         start_time = pd.Timestamp(start_time or cal[0])
         end_time = pd.Timestamp(end_time or cal[-1])
@@ -710,7 +713,7 @@ class LocalInstrumentProvider(InstrumentProvider, ProviderBackendMixin):
             for inst, spans in _instruments.items()
         }
         _instruments_filtered = {key: value for key, value in _instruments_filtered.items() if value}
-        # filter
+        # 过滤
         filter_pipe = instruments["filter_pipe"]
         for filter_config in filter_pipe:
             from . import filter as F  # pylint: disable=C0415
@@ -724,9 +727,9 @@ class LocalInstrumentProvider(InstrumentProvider, ProviderBackendMixin):
 
 
 class LocalFeatureProvider(FeatureProvider, ProviderBackendMixin):
-    """Local feature data provider class
+    """本地特征数据提供者类
 
-    Provide feature data from local data source.
+    从本地数据源提供特征数据。
     """
 
     def __init__(self, remote=False, backend={}):
@@ -735,23 +738,23 @@ class LocalFeatureProvider(FeatureProvider, ProviderBackendMixin):
         self.backend = backend
 
     def feature(self, instrument, field, start_index, end_index, freq):
-        # validate
+        # 验证
         field = str(field)[1:]
         instrument = code_to_fname(instrument)
         return self.backend_obj(instrument=instrument, field=field, freq=freq)[start_index : end_index + 1]
 
 
 class LocalPITProvider(PITProvider):
-    # TODO: Add PIT backend file storage
-    # NOTE: This class is not multi-threading-safe!!!!
+    # TODO: 添加 PIT 后端文件存储
+    # 注意：此类不是多线程安全的！！！！
 
     def period_feature(self, instrument, field, start_index, end_index, cur_time, period=None):
         if not isinstance(cur_time, pd.Timestamp):
             raise ValueError(
-                f"Expected pd.Timestamp for `cur_time`, got '{cur_time}'. Advices: you can't query PIT data directly(e.g. '$$roewa_q'), you must use `P` operator to convert data to each day (e.g. 'P($$roewa_q)')"
+                f"期望 `cur_time` 为 pd.Timestamp，但得到 '{cur_time}'。建议：你不能直接查询 PIT 数据（例如 '$$roewa_q'），必须使用 `P` 运算符将数据转换为每日数据（例如 'P($$roewa_q)')"
             )
 
-        assert end_index <= 0  # PIT don't support querying future data
+        assert end_index <= 0  # PIT 不支持查询未来数据
 
         DATA_RECORDS = [
             ("date", C.pit_record_type["date"]),
@@ -764,44 +767,25 @@ class LocalPITProvider(PITProvider):
         field = str(field).lower()[2:]
         instrument = code_to_fname(instrument)
 
-        # {For acceleration
-        # start_index, end_index, cur_index = kwargs["info"]
-        # if cur_index == start_index:
-        #     if not hasattr(self, "all_fields"):
-        #         self.all_fields = []
-        #     self.all_fields.append(field)
-        #     if not hasattr(self, "period_index"):
-        #         self.period_index = {}
-        #     if field not in self.period_index:
-        #         self.period_index[field] = {}
-        # For acceleration}
-
         if not field.endswith("_q") and not field.endswith("_a"):
-            raise ValueError("period field must ends with '_q' or '_a'")
+            raise ValueError("时期字段必须以 '_q' 或 '_a' 结尾")
         quarterly = field.endswith("_q")
         index_path = C.dpm.get_data_uri() / "financial" / instrument.lower() / f"{field}.index"
         data_path = C.dpm.get_data_uri() / "financial" / instrument.lower() / f"{field}.data"
         if not (index_path.exists() and data_path.exists()):
-            raise FileNotFoundError("No file is found.")
-        # NOTE: The most significant performance loss is here.
-        # Does the acceleration that makes the program complicated really matters?
-        # - It makes parameters of the interface complicate
-        # - It does not performance in the optimal way (places all the pieces together, we may achieve higher performance)
-        #    - If we design it carefully, we can go through for only once to get the historical evolution of the data.
-        # So I decide to deprecated previous implementation and keep the logic of the program simple
-        # Instead, I'll add a cache for the index file.
+            raise FileNotFoundError("未找到文件。")
         data = np.fromfile(data_path, dtype=DATA_RECORDS)
 
-        # find all revision periods before `cur_time`
+        # 查找 `cur_time` 之前的所有修订时期
         cur_time_int = int(cur_time.year) * 10000 + int(cur_time.month) * 100 + int(cur_time.day)
         loc = np.searchsorted(data["date"], cur_time_int, side="right")
         if loc <= 0:
             return pd.Series(dtype=C.pit_record_type["value"])
-        last_period = data["period"][:loc].max()  # return the latest quarter
+        last_period = data["period"][:loc].max()  # 返回最近的季度
         first_period = data["period"][:loc].min()
         period_list = get_period_list(first_period, last_period, quarterly)
         if period is not None:
-            # NOTE: `period` has higher priority than `start_index` & `end_index`
+            # 注意：`period` 的优先级高于 `start_index` 和 `end_index`
             if period not in period_list:
                 return pd.Series(dtype=C.pit_record_type["value"])
             else:
@@ -810,30 +794,18 @@ class LocalPITProvider(PITProvider):
             period_list = period_list[max(0, len(period_list) + start_index - 1) : len(period_list) + end_index]
         value = np.full((len(period_list),), np.nan, dtype=VALUE_DTYPE)
         for i, p in enumerate(period_list):
-            # last_period_index = self.period_index[field].get(period)  # For acceleration
             value[i], now_period_index = read_period_data(
-                index_path, data_path, p, cur_time_int, quarterly  # , last_period_index  # For acceleration
+                index_path, data_path, p, cur_time_int, quarterly
             )
-            # self.period_index[field].update({period: now_period_index})  # For acceleration
-        # NOTE: the index is period_list; So it may result in unexpected values(e.g. nan)
-        # when calculation between different features and only part of its financial indicator is published
         series = pd.Series(value, index=period_list, dtype=VALUE_DTYPE)
-
-        # {For acceleration
-        # if cur_index == end_index:
-        #     self.all_fields.remove(field)
-        #     if not len(self.all_fields):
-        #         del self.all_fields
-        #         del self.period_index
-        # For acceleration}
 
         return series
 
 
 class LocalExpressionProvider(ExpressionProvider):
-    """Local expression data provider class
+    """本地表达式数据提供者类
 
-    Provide expression data from local data source.
+    从本地数据源提供表达式数据。
     """
 
     def __init__(self, time2idx=True):
@@ -845,9 +817,9 @@ class LocalExpressionProvider(ExpressionProvider):
         start_time = time_to_slc_point(start_time)
         end_time = time_to_slc_point(end_time)
 
-        # Two kinds of queries are supported
-        # - Index-based expression: this may save a lot of memory because the datetime index is not saved on the disk
-        # - Data with datetime index expression: this will make it more convenient to integrating with some existing databases
+        # 支持两种查询方式
+        # - 基于索引的表达式：这可以节省大量内存，因为日期时间索引不保存在磁盘上
+        # - 带日期时间索引数据的表达式：这将使其更方便地与一些现有数据库集成
         if self.time2idx:
             _, _, start_index, end_index = Cal.locate_index(start_time, end_time, freq=freq, future=False)
             lft_etd, rght_etd = expression.get_extended_window_size()
@@ -859,15 +831,15 @@ class LocalExpressionProvider(ExpressionProvider):
             series = expression.load(instrument, query_start, query_end, freq)
         except Exception as e:
             get_module_logger("data").debug(
-                f"Loading expression error: "
+                f"加载表达式时出错: "
                 f"instrument={instrument}, field=({field}), start_time={start_time}, end_time={end_time}, freq={freq}. "
-                f"error info: {str(e)}"
+                f"错误信息: {str(e)}"
             )
             raise
-        # Ensure that each column type is consistent
+        # 确保每列类型一致
         # FIXME:
-        # 1) The stock data is currently float. If there is other types of data, this part needs to be re-implemented.
-        # 2) The precision should be configurable
+        # 1) 当前股票数据是浮点型。如果存在其他类型的数据，这部分需要重新实现。
+        # 2) 精度应可配置
         try:
             series = series.astype(np.float32)
         except ValueError:
@@ -880,21 +852,21 @@ class LocalExpressionProvider(ExpressionProvider):
 
 
 class LocalDatasetProvider(DatasetProvider):
-    """Local dataset data provider class
+    """本地数据集数据提供者类
 
-    Provide dataset data from local data source.
+    从本地数据源提供数据集数据。
     """
 
     def __init__(self, align_time: bool = True):
         """
-        Parameters
+        参数
         ----------
         align_time : bool
-            Will we align the time to calendar
-            the frequency is flexible in some dataset and can't be aligned.
-            For the data with fixed frequency with a shared calendar, the align data to the calendar will provides following benefits
+            是否将时间对齐到日历
+            在某些数据集中，频率是灵活的，无法对齐。
+            对于具有共享日历的固定频率数据，将数据对齐到日历将提供以下好处
 
-            - Align queries to the same parameters, so the cache can be shared.
+            - 将查询对齐到相同的参数，以便可以共享缓存。
         """
         super().__init__()
         self.align_time = align_time
@@ -911,8 +883,8 @@ class LocalDatasetProvider(DatasetProvider):
         instruments_d = self.get_instruments_d(instruments, freq)
         column_names = self.get_column_names(fields)
         if self.align_time:
-            # NOTE: if the frequency is a fixed value.
-            # align the data to fixed calendar point
+            # 注意：如果频率是固定值。
+            # 将数据对齐到固定的日历点
             cal = Cal.calendar(start_time, end_time, freq)
             if len(cal) == 0:
                 return pd.DataFrame(
@@ -929,8 +901,8 @@ class LocalDatasetProvider(DatasetProvider):
     @staticmethod
     def multi_cache_walker(instruments, fields, start_time=None, end_time=None, freq="day"):
         """
-        This method is used to prepare the expression cache for the client.
-        Then the client will load the data from expression cache by itself.
+        此方法用于为客户端准备表达式缓存。
+        然后客户端将自行从表达式缓存加载数据。
 
         """
         instruments_d = DatasetProvider.get_instruments_d(instruments, freq)
@@ -950,8 +922,8 @@ class LocalDatasetProvider(DatasetProvider):
     @staticmethod
     def cache_walker(inst, start_time, end_time, freq, column_names):
         """
-        If the expressions of one instrument haven't been calculated before,
-        calculate it and write it into expression cache.
+        如果一个金融工具的表达式之前没有被计算过，
+        计算它并将其写入表达式缓存。
 
         """
         for field in column_names:
@@ -959,9 +931,9 @@ class LocalDatasetProvider(DatasetProvider):
 
 
 class ClientCalendarProvider(CalendarProvider):
-    """Client calendar data provider class
+    """客户端日历数据提供者类
 
-    Provide calendar data by requesting data from server as a client.
+    作为客户端通过从服务器请求数据来提供日历数据。
     """
 
     def __init__(self):
@@ -983,9 +955,9 @@ class ClientCalendarProvider(CalendarProvider):
 
 
 class ClientInstrumentProvider(InstrumentProvider):
-    """Client instrument data provider class
+    """客户端金融工具数据提供者类
 
-    Provide instrument data by requesting data from server as a client.
+    作为客户端通过从服务器请求数据来提供金融工具数据。
     """
 
     def __init__(self):
@@ -1020,14 +992,14 @@ class ClientInstrumentProvider(InstrumentProvider):
         result = self.queue.get(timeout=C["timeout"])
         if isinstance(result, Exception):
             raise result
-        get_module_logger("data").debug("get result")
+        get_module_logger("data").debug("获取结果")
         return result
 
 
 class ClientDatasetProvider(DatasetProvider):
-    """Client dataset data provider class
+    """客户端数据集数据提供者类
 
-    Provide dataset data by requesting data from server as a client.
+    作为客户端通过从服务器请求数据来提供数据集数据。
     """
 
     def __init__(self):
@@ -1050,16 +1022,15 @@ class ClientDatasetProvider(DatasetProvider):
     ):
         if Inst.get_inst_type(instruments) == Inst.DICT:
             get_module_logger("data").warning(
-                "Getting features from a dict of instruments is not recommended because the features will not be "
-                "cached! "
-                "The dict of instruments will be cleaned every day."
+                "不建议从金融工具字典中获取特征，因为特征不会被缓存！"
+                "金融工具字典每天都会被清理。"
             )
 
         if disk_cache == 0:
             """
-            Call the server to generate the expression cache.
-            Then load the data from the expression cache directly.
-            - default using multi-kernel method.
+            调用服务器生成表达式缓存。
+            然后直接从表达式缓存加载数据。
+            - 默认使用多核方法。
 
             """
             self.conn.send_request(
@@ -1096,17 +1067,17 @@ class ClientDatasetProvider(DatasetProvider):
                     return data
         else:
             """
-            Call the server to generate the data-set cache, get the uri of the cache file.
-            Then load the data from the file on NFS directly.
-            - using single-process implementation.
+            调用服务器生成数据集缓存，获取缓存文件的 URI。
+            然后直接从 NFS 上的文件加载数据。
+            - 使用单进程实现。
 
             """
-            # TODO: support inst_processors, need to change the code of qlib-server at the same time
-            # FIXME: The cache after resample, when read again and intercepted with end_time, results in incomplete data date
+            # TODO: 支持 inst_processors, 需要同时修改 qlib-server 的代码
+            # FIXME: 重采样后的缓存在再次读取并使用 end_time 截取时，会导致数据日期不完整
             if inst_processors:
                 raise ValueError(
-                    f"{self.__class__.__name__} does not support inst_processor. "
-                    f"Please use `D.features(disk_cache=0)` or `qlib.init(dataset_cache=None)`"
+                    f"{self.__class__.__name__} 不支持 inst_processor。 "
+                    f"请使用 `D.features(disk_cache=0)` 或 `qlib.init(dataset_cache=None)`"
                 )
             self.conn.send_request(
                 request_type="feature",
@@ -1120,29 +1091,29 @@ class ClientDatasetProvider(DatasetProvider):
                 },
                 msg_queue=self.queue,
             )
-            # - Done in callback
+            # - 在回调中完成
             feature_uri = self.queue.get(timeout=C["timeout"])
             if isinstance(feature_uri, Exception):
                 raise feature_uri
-            get_module_logger("data").debug("get result")
+            get_module_logger("data").debug("获取结果")
             try:
-                # pre-mound nfs, used for demo
+                # 预挂载 nfs, 用于演示
                 mnt_feature_uri = C.dpm.get_data_uri(freq).joinpath(C.dataset_cache_dir_name, feature_uri)
                 df = DiskDatasetCache.read_data_from_cache(mnt_feature_uri, start_time, end_time, fields)
-                get_module_logger("data").debug("finish slicing data")
+                get_module_logger("data").debug("完成数据切片")
                 if return_uri:
                     return df, feature_uri
                 return df
             except AttributeError as attribute_e:
-                raise IOError("Unable to fetch instruments from remote server!") from attribute_e
+                raise IOError("无法从远程服务器获取金融工具！") from attribute_e
 
 
 class BaseProvider:
-    """Local provider class
-    It is a set of interface that allow users to access data.
-    Because PITD is not exposed publicly to users, so it is not included in the interface.
+    """本地提供者类
+    它是一组允许用户访问数据的接口。
+    因为 PITD 不对用户公开，所以它不包含在接口中。
 
-    To keep compatible with old qlib provider.
+    为了与旧的 qlib 提供者保持兼容。
     """
 
     def calendar(self, start_time=None, end_time=None, freq="day", future=False):
@@ -1151,8 +1122,8 @@ class BaseProvider:
     def instruments(self, market="all", filter_pipe=None, start_time=None, end_time=None):
         if start_time is not None or end_time is not None:
             get_module_logger("Provider").warning(
-                "The instruments corresponds to a stock pool. "
-                "Parameters `start_time` and `end_time` does not take effect now."
+                "金融工具对应于一个股票池。"
+                "参数 `start_time` 和 `end_time` 现在不起作用。"
             )
         return InstrumentProvider.instruments(market, filter_pipe)
 
@@ -1170,18 +1141,17 @@ class BaseProvider:
         inst_processors=[],
     ):
         """
-        Parameters
+        参数
         ----------
         disk_cache : int
-            whether to skip(0)/use(1)/replace(2) disk_cache
+            是否跳过(0)/使用(1)/替换(2)磁盘缓存
 
 
-        This function will try to use cache method which has a keyword `disk_cache`,
-        and will use provider method if a type error is raised because the DatasetD instance
-        is a provider class.
+        此函数将尝试使用带有关键字 `disk_cache` 的缓存方法，
+        如果因为 DatasetD 实例是提供者类而引发类型错误，则将使用提供者方法。
         """
         disk_cache = C.default_disk_cache if disk_cache is None else disk_cache
-        fields = list(fields)  # In case of tuple.
+        fields = list(fields)  # 以防是元组。
         try:
             return DatasetD.dataset(
                 instruments, fields, start_time, end_time, freq, disk_cache, inst_processors=inst_processors
@@ -1193,10 +1163,10 @@ class BaseProvider:
 class LocalProvider(BaseProvider):
     def _uri(self, type, **kwargs):
         """_uri
-        The server hope to get the uri of the request. The uri will be decided
-        by the dataprovider. For ex, different cache layer has different uri.
+        服务器希望获取请求的 URI。URI 将由数据提供者决定。
+        例如，不同的缓存层有不同的 URI。
 
-        :param type: The type of resource for the uri
+        :param type: URI 的资源类型
         :param **kwargs:
         """
         if type == "calendar":
@@ -1209,7 +1179,7 @@ class LocalProvider(BaseProvider):
     def features_uri(self, instruments, fields, start_time, end_time, freq, disk_cache=1):
         """features_uri
 
-        Return the uri of the generated cache of features/dataset
+        返回生成的特征/数据集缓存的 URI
 
         :param disk_cache:
         :param instruments:
@@ -1222,18 +1192,18 @@ class LocalProvider(BaseProvider):
 
 
 class ClientProvider(BaseProvider):
-    """Client Provider
+    """客户端提供者
 
-    Requesting data from server as a client. Can propose requests:
+    作为客户端从服务器请求数据。可以提出请求：
 
-        - Calendar : Directly respond a list of calendars
-        - Instruments (without filter): Directly respond a list/dict of instruments
-        - Instruments (with filters):  Respond a list/dict of instruments
-        - Features : Respond a cache uri
+        - 日历 : 直接响应日历列表
+        - 金融工具 (无过滤器): 直接响应金融工具列表/字典
+        - 金融工具 (有过滤器):  响应金融工具列表/字典
+        - 特征 : 响应缓存 URI
 
-    The general workflow is described as follows:
-    When the user use client provider to propose a request, the client provider will connect the server and send the request. The client will start to wait for the response. The response will be made instantly indicating whether the cache is available. The waiting procedure will terminate only when the client get the response saying `feature_available` is true.
-    `BUG` : Everytime we make request for certain data we need to connect to the server, wait for the response and disconnect from it. We can't make a sequence of requests within one connection. You can refer to https://python-socketio.readthedocs.io/en/latest/client.html for documentation of python-socketIO client.
+    一般工作流程如下：
+    当用户使用客户端提供者提出请求时，客户端提供者将连接服务器并发送请求。客户端将开始等待响应。响应将立即做出，指示缓存是否可用。等待过程只有在客户端收到 `feature_available` 为 true 的响应时才会终止。
+    `BUG` : 每次我们请求特定数据时，我们都需要连接到服务器，等待响应然后断开连接。我们无法在一个连接内发出一系列请求。你可以参考 https://python-socketio.readthedocs.io/en/latest/client.html 获取 python-socketIO 客户端的文档。
     """
 
     def __init__(self):
@@ -1280,6 +1250,7 @@ else:
     DatasetProviderWrapper = DatasetProvider
     BaseProviderWrapper = BaseProvider
 
+# 全局数据访问入口
 Cal: CalendarProviderWrapper = Wrapper()
 Inst: InstrumentProviderWrapper = Wrapper()
 FeatureD: FeatureProviderWrapper = Wrapper()
@@ -1290,7 +1261,7 @@ D: BaseProviderWrapper = Wrapper()
 
 
 def register_all_wrappers(C):
-    """register_all_wrappers"""
+    """注册所有的包装器"""
     logger = get_module_logger("data")
     module = get_module_by_module_path("qlib.data")
 
@@ -1298,35 +1269,35 @@ def register_all_wrappers(C):
     if getattr(C, "calendar_cache", None) is not None:
         _calendar_provider = init_instance_by_config(C.calendar_cache, module, provide=_calendar_provider)
     register_wrapper(Cal, _calendar_provider, "qlib.data")
-    logger.debug(f"registering Cal {C.calendar_provider}-{C.calendar_cache}")
+    logger.debug(f"注册 Cal {C.calendar_provider}-{C.calendar_cache}")
 
     _instrument_provider = init_instance_by_config(C.instrument_provider, module)
     register_wrapper(Inst, _instrument_provider, "qlib.data")
-    logger.debug(f"registering Inst {C.instrument_provider}")
+    logger.debug(f"注册 Inst {C.instrument_provider}")
 
     if getattr(C, "feature_provider", None) is not None:
         feature_provider = init_instance_by_config(C.feature_provider, module)
         register_wrapper(FeatureD, feature_provider, "qlib.data")
-        logger.debug(f"registering FeatureD {C.feature_provider}")
+        logger.debug(f"注册 FeatureD {C.feature_provider}")
 
     if getattr(C, "pit_provider", None) is not None:
         pit_provider = init_instance_by_config(C.pit_provider, module)
         register_wrapper(PITD, pit_provider, "qlib.data")
-        logger.debug(f"registering PITD {C.pit_provider}")
+        logger.debug(f"注册 PITD {C.pit_provider}")
 
     if getattr(C, "expression_provider", None) is not None:
-        # This provider is unnecessary in client provider
+        # 在客户端提供者中，此提供者是不必要的
         _eprovider = init_instance_by_config(C.expression_provider, module)
         if getattr(C, "expression_cache", None) is not None:
             _eprovider = init_instance_by_config(C.expression_cache, module, provider=_eprovider)
         register_wrapper(ExpressionD, _eprovider, "qlib.data")
-        logger.debug(f"registering ExpressionD {C.expression_provider}-{C.expression_cache}")
+        logger.debug(f"注册 ExpressionD {C.expression_provider}-{C.expression_cache}")
 
     _dprovider = init_instance_by_config(C.dataset_provider, module)
     if getattr(C, "dataset_cache", None) is not None:
         _dprovider = init_instance_by_config(C.dataset_cache, module, provider=_dprovider)
     register_wrapper(DatasetD, _dprovider, "qlib.data")
-    logger.debug(f"registering DatasetD {C.dataset_provider}-{C.dataset_cache}")
+    logger.debug(f"注册 DatasetD {C.dataset_provider}-{C.dataset_cache}")
 
     register_wrapper(D, C.provider, "qlib.data")
-    logger.debug(f"registering D {C.provider}")
+    logger.debug(f"注册 D {C.provider}")
