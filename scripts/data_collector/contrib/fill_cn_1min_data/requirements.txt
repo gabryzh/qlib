@@ -1,5 +1,8 @@
-fire
-pandas
-loguru
-tqdm
-pyqlib
+# 本文件列出了运行fill_cn_1min_data脚本所需的Python依赖包。
+# 可以使用 `pip install -r requirements.txt` 命令来安装所有这些依赖。
+
+fire        # Google开发的一个库，可以轻松地将任何Python对象转换为命令行界面。
+pandas      # 一个提供高性能、易于使用的数据结构和数据分析工具的库，用于读写CSV文件和数据处理。
+loguru      # 一个功能强大且易于使用的日志记录库。
+tqdm        # 一个快速、可扩展的Python进度条库，用于在处理长时间任务时显示进度。
+pyqlib      # qlib库的包名，用于访问Qlib的数据接口（如 D.features, D.instruments）。
