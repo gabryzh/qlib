@@ -6,11 +6,17 @@ from qlib.data.dataset.utils import fetch_df_by_index
 
 
 class HighFreqNorm(Processor):
+    """高频数据归一化处理器"""
     def __init__(self, fit_start_time, fit_end_time):
         self.fit_start_time = fit_start_time
         self.fit_end_time = fit_end_time
 
     def fit(self, df_features):
+        """
+        拟合。
+
+        :param df_features: 特征数据帧。
+        """
         fetch_df = fetch_df_by_index(df_features, slice(self.fit_start_time, self.fit_end_time), level="datetime")
         del df_features
         df_values = fetch_df.values
@@ -34,6 +40,12 @@ class HighFreqNorm(Processor):
             self.feature_vmin[name] = np.nanmin(part_values)
 
     def __call__(self, df_features):
+        """
+        调用。
+
+        :param df_features: 特征数据帧。
+        :return: 处理后的特征数据帧。
+        """
         df_features["date"] = pd.to_datetime(
             df_features.index.get_level_values(level="datetime").to_series().dt.date.values
         )
@@ -65,7 +77,7 @@ class HighFreqNorm(Processor):
         idx = df_features.index.droplevel("datetime").drop_duplicates()
         idx.set_names(["instrument", "datetime"], inplace=True)
 
-        # Reshape is specifically for adapting to RL high-freq executor
+        # Reshape 专门用于适应 RL 高频执行器
         feat = df_values[:, [0, 1, 2, 3, 4, 10]].reshape(-1, 6 * 240)
         feat_1 = df_values[:, [5, 6, 7, 8, 9, 11]].reshape(-1, 6 * 240)
         df_new_features = pd.DataFrame(

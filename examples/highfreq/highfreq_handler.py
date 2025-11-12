@@ -3,6 +3,7 @@ from qlib.contrib.data.handler import check_transform_proc
 
 
 class HighFreqHandler(DataHandlerLP):
+    """高频数据处理器"""
     def __init__(
         self,
         instruments="csi300",
@@ -36,17 +37,20 @@ class HighFreqHandler(DataHandlerLP):
         )
 
     def get_feature_config(self):
+        """
+        获取特征配置。
+        """
         fields = []
         names = []
 
         template_if = "If(IsNull({1}), {0}, {1})"
         template_paused = "Select(Or(IsNull($paused), Eq($paused, 0.0)), {0})"
         template_fillnan = "BFillNan(FFillNan({0}))"
-        # Because there is no vwap field in the yahoo data, a method similar to Simpson integration is used to approximate vwap
+        # 因为雅虎数据中没有 vwap 字段，所以使用类似于辛普森积分的方法来近似 vwap
         simpson_vwap = "($open + 2*$high + 2*$low + $close)/6"
 
         def get_normalized_price_feature(price_field, shift=0):
-            """Get normalized price feature ops"""
+            """获取归一化价格特征操作"""
             if shift == 0:
                 template_norm = "Cut({0}/Ref(DayLast({1}), 240), 240, None)"
             else:
@@ -102,6 +106,7 @@ class HighFreqHandler(DataHandlerLP):
 
 
 class HighFreqBacktestHandler(DataHandler):
+    """高频回测处理器"""
     def __init__(
         self,
         instruments="csi300",
@@ -124,13 +129,16 @@ class HighFreqBacktestHandler(DataHandler):
         )
 
     def get_feature_config(self):
+        """
+        获取特征配置。
+        """
         fields = []
         names = []
 
         template_if = "If(IsNull({1}), {0}, {1})"
         template_paused = "Select(Or(IsNull($paused), Eq($paused, 0.0)), {0})"
         template_fillnan = "BFillNan(FFillNan({0}))"
-        # Because there is no vwap field in the yahoo data, a method similar to Simpson integration is used to approximate vwap
+        # 因为雅虎数据中没有 vwap 字段，所以使用类似于辛普森积分的方法来近似 vwap
         simpson_vwap = "($open + 2*$high + 2*$low + $close)/6"
         fields += [
             "Cut({0}, 240, None)".format(template_fillnan.format(template_paused.format("$close"))),

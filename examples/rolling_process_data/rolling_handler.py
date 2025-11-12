@@ -4,6 +4,7 @@ from qlib.contrib.data.handler import check_transform_proc
 
 
 class RollingDataHandler(DataHandlerLP):
+    """滚动数据处理器"""
     def __init__(
         self,
         start_time=None,

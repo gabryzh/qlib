@@ -24,60 +24,94 @@ from qlib.workflow import R
 from qlib.tests.data import GetData
 
 
-# decorator to check the arguments
+# 装饰器：检查参数
 def only_allow_defined_args(function_to_decorate):
+    """
+    一个装饰器，用于确保函数只接收在其定义中声明过的参数。
+    """
     @functools.wraps(function_to_decorate)
     def _return_wrapped(*args, **kwargs):
-        """Internal wrapper function."""
+        """内部包装函数。"""
+        # 获取被装饰函数的参数规格
         argspec = inspect.getfullargspec(function_to_decorate)
+        # 创建一个包含所有有效参数名的集合
         valid_names = set(argspec.args + argspec.kwonlyargs)
         if "self" in valid_names:
             valid_names.remove("self")
+        # 遍历传入的关键字参数
         for arg_name in kwargs:
+            # 如果参数名无效，则抛出 ValueError
             if arg_name not in valid_names:
-                raise ValueError("Unknown argument seen '%s', expected: [%s]" % (arg_name, ", ".join(valid_names)))
+                raise ValueError("未知参数 '%s'，预期参数: [%s]" % (arg_name, ", ".join(valid_names)))
+        # 如果所有参数都有效，则调用原始函数
         return function_to_decorate(*args, **kwargs)
 
     return _return_wrapped
 
 
-# function to handle ctrl z and ctrl c
+# 函数：处理 ctrl+z 和 ctrl+c
 def handler(signum, frame):
+    """
+    信号处理函数，用于捕获中断信号 (SIGINT) 并终止当前进程。
+    """
     os.system("kill -9 %d" % os.getpid())
 
 
+# 注册信号处理函数
 signal.signal(signal.SIGINT, handler)
 
 
-# function to calculate the mean and std of a list in the results dictionary
+# 函数：计算结果字典中列表的均值和标准差
 def cal_mean_std(results) -> dict:
+    """
+    计算一个字典中每个指标列表的均值和标准差。
+
+    :param results: 一个字典，键为模型名称，值为包含指标列表的另一个字典。
+    :return: 一个包含每个指标均值和标准差的字典。
+    """
     mean_std = dict()
     for fn in results:
         mean_std[fn] = dict()
         for metric in results[fn]:
+            # 计算均值
             mean = statistics.mean(results[fn][metric]) if len(results[fn][metric]) > 1 else results[fn][metric][0]
+            # 计算标准差
             std = statistics.stdev(results[fn][metric]) if len(results[fn][metric]) > 1 else 0
             mean_std[fn][metric] = [mean, std]
     return mean_std
 
 
-# function to create the environment ofr an anaconda environment
+# 函数：为 anaconda 环境创建环境
 def create_env():
-    # create env
+    """
+    创建一个临时的 anaconda 虚拟环境。
+
+    :return: 临时目录路径, 环境路径, python 解释器路径, anaconda 激活脚本路径
+    """
+    # 创建临时目录
     temp_dir = tempfile.mkdtemp()
     env_path = Path(temp_dir).absolute()
-    sys.stderr.write(f"Creating Virtual Environment with path: {env_path}...\n")
+    sys.stderr.write(f"正在创建虚拟环境，路径: {env_path}...\n")
+    # 创建 conda 环境
     execute(f"conda create --prefix {env_path} python=3.7 -y")
-    python_path = env_path / "bin" / "python"  # TODO: FIX ME!
+    python_path = env_path / "bin" / "python"  # TODO: 修复此处的硬编码路径
     sys.stderr.write("\n")
-    # get anaconda activate path
-    conda_activate = Path(os.environ["CONDA_PREFIX"]) / "bin" / "activate"  # TODO: FIX ME!
+    # 获取 anaconda 激活脚本路径
+    conda_activate = Path(os.environ["CONDA_PREFIX"]) / "bin" / "activate"  # TODO: 修复此处的硬编码路径
     return temp_dir, env_path, python_path, conda_activate
 
 
-# function to execute the cmd
+# 函数：执行命令行命令
 def execute(cmd, wait_when_err=False, raise_err=True):
-    print("Running CMD:", cmd)
+    """
+    执行一个 shell 命令。
+
+    :param cmd: 要执行的命令。
+    :param wait_when_err: 如果发生错误，是否等待用户输入。
+    :param raise_err: 如果发生错误，是否抛出异常。
+    :return: 如果命令执行成功，返回 None；否则返回错误信息。
+    """
+    print("正在运行命令:", cmd)
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True, shell=True) as p:
         for line in p.stdout:
             sys.stdout.write(line.split("\b")[0])
@@ -88,17 +122,25 @@ def execute(cmd, wait_when_err=False, raise_err=True):
 
     if p.returncode != 0:
         if wait_when_err:
-            input("Press Enter to Continue")
+            input("按回车键继续")
         if raise_err:
-            raise RuntimeError(f"Error when executing command: {cmd}")
+            raise RuntimeError(f"执行命令时出错: {cmd}")
         return p.stderr
     else:
         return None
 
 
-# function to get all the folders benchmark folder
+# 函数：获取 benchmarks 文件夹下的所有文件夹
 def get_all_folders(models, exclude) -> dict:
+    """
+    获取 `benchmarks` 目录下的所有模型文件夹。
+
+    :param models: 要包含或排除的模型列表。
+    :param exclude: 一个布尔值，如果为 True，则排除 `models` 中指定的模型；否则只包含 `models` 中指定的模型。
+    :return: 一个包含模型名称和对应路径的字典。
+    """
     folders = dict()
+    # 处理 models 参数
     if isinstance(models, str):
         model_list = models.split(",")
         models = [m.lower().strip("[ ]") for m in model_list]
@@ -107,7 +149,9 @@ def get_all_folders(models, exclude) -> dict:
     elif models is None:
         models = [f.name.lower() for f in os.scandir("benchmarks")]
     else:
-        raise ValueError("Input models type is not supported. Please provide str or list without space.")
+        raise ValueError("输入的 models 类型不支持。请提供字符串或列表，不要带空格。")
+
+    # 遍历 benchmarks 目录下的所有文件夹
     for f in os.scandir("benchmarks"):
         add = xor(bool(f.name.lower() in models), bool(exclude))
         if add:
@@ -116,8 +160,16 @@ def get_all_folders(models, exclude) -> dict:
     return folders
 
 
-# function to get all the files under the model folder
+# 函数：获取模型文件夹下的所有文件
 def get_all_files(folder_path, dataset, universe="") -> (str, str):
+    """
+    获取指定模型文件夹下的 yaml 配置文件和 requirements.txt 文件。
+
+    :param folder_path: 模型文件夹的路径。
+    :param dataset: 数据集名称。
+    :param universe: 股票领域。
+    :return: yaml 文件路径和 requirements.txt 文件路径。
+    """
     if universe != "":
         universe = f"_{universe}"
     yaml_path = str(Path(f"{folder_path}") / f"*{dataset}{universe}.yaml")
@@ -130,17 +182,24 @@ def get_all_files(folder_path, dataset, universe="") -> (str, str):
         return yaml_file[0], req_file[0]
 
 
-# function to retrieve all the results
+# 函数：检索所有结果
 def get_all_results(folders) -> dict:
+    """
+    从 MLflow 实验中检索所有模型的结果。
+
+    :param folders: 包含模型名称的列表。
+    :return: 一个包含所有模型结果的字典。
+    """
     results = dict()
     for fn in folders:
         try:
             exp = R.get_exp(experiment_name=fn, create=False)
         except ValueError:
-            # No experiment results
+            # 没有实验结果
             continue
         recorders = exp.list_recorders()
         result = dict()
+        # 初始化指标列表
         result["annualized_return_with_cost"] = list()
         result["information_ratio_with_cost"] = list()
         result["max_drawdown_with_cost"] = list()
@@ -148,13 +207,15 @@ def get_all_results(folders) -> dict:
         result["icir"] = list()
         result["rank_ic"] = list()
         result["rank_icir"] = list()
+        # 遍历所有记录器
         for recorder_id in recorders:
             if recorders[recorder_id].status == "FINISHED":
                 recorder = R.get_recorder(recorder_id=recorder_id, experiment_name=fn)
                 metrics = recorder.list_metrics()
                 if "1day.excess_return_with_cost.annualized_return" not in metrics:
-                    print(f"{recorder_id} is skipped due to incomplete result")
+                    print(f"{recorder_id} 由于结果不完整而被跳过")
                     continue
+                # 提取指标
                 result["annualized_return_with_cost"].append(metrics["1day.excess_return_with_cost.annualized_return"])
                 result["information_ratio_with_cost"].append(metrics["1day.excess_return_with_cost.information_ratio"])
                 result["max_drawdown_with_cost"].append(metrics["1day.excess_return_with_cost.max_drawdown"])
@@ -166,8 +227,15 @@ def get_all_results(folders) -> dict:
     return results
 
 
-# function to generate and save markdown table
+# 函数：生成并保存 markdown 表格
 def gen_and_save_md_table(metrics, dataset):
+    """
+    生成一个 markdown 表格来展示模型结果，并将其保存到文件中。
+
+    :param metrics: 包含模型指标的字典。
+    :param dataset: 数据集名称。
+    :return: 生成的 markdown 表格字符串。
+    """
     table = "| Model Name | Dataset | IC | ICIR | Rank IC | Rank ICIR | Annualized Return | Information Ratio | Max Drawdown |\n"
     table += "|---|---|---|---|---|---|---|---|---|\n"
     for fn in metrics:
@@ -185,19 +253,27 @@ def gen_and_save_md_table(metrics, dataset):
     return table
 
 
-# read yaml, remove seed kwargs of model, and then save file in the temp_dir
+# 读取 yaml，删除模型的 seed 参数，然后将文件保存在临时目录中
 def gen_yaml_file_without_seed_kwargs(yaml_path, temp_dir):
+    """
+    读取 yaml 配置文件，删除模型中的 `seed` 参数，并将修改后的配置保存到临时目录中。
+    这对于多次运行模型以获得更稳健的结果非常有用。
+
+    :param yaml_path: 原始 yaml 文件的路径。
+    :param temp_dir: 用于保存修改后 yaml 文件的临时目录。
+    :return: 修改后 yaml 文件的路径。
+    """
     with open(yaml_path, "r") as fp:
         yaml = YAML(typ="safe", pure=True)
         config = yaml.load(fp)
     try:
         del config["task"]["model"]["kwargs"]["seed"]
     except KeyError:
-        # If the key does not exists, use original yaml
-        # NOTE: it is very important if the model most run in original path(when sys.rel_path is used)
+        # 如果关键字不存在，则使用原始 yaml
+        # 注意：如果模型必须在原始路径中运行（当使用 sys.rel_path 时），这一点非常重要
         return yaml_path
     else:
-        # otherwise, generating a new yaml without random seed
+        # 否则，生成一个没有随机种子的新 yaml
         file_name = yaml_path.split("/")[-1]
         temp_path = os.path.join(temp_dir, file_name)
         with open(temp_path, "w") as fp:
@@ -206,8 +282,16 @@ def gen_yaml_file_without_seed_kwargs(yaml_path, temp_dir):
 
 
 class ModelRunner:
+    """
+    一个用于运行 `qlib` 模型的类。
+    """
     def _init_qlib(self, exp_folder_name):
-        # init qlib
+        """
+        初始化 `qlib`。
+
+        :param exp_folder_name: 实验文件夹的名称。
+        """
+        # 初始化 qlib
         GetData().qlib_data(exists_skip=True)
         qlib.init(
             exp_manager={
@@ -220,7 +304,7 @@ class ModelRunner:
             }
         )
 
-    # function to run the all the models
+    # 函数：运行所有模型
     @only_allow_defined_args
     def run(
         self,
@@ -235,97 +319,97 @@ class ModelRunner:
         wait_when_err: bool = False,
     ):
         """
-        Please be aware that this function can only work under Linux. MacOS and Windows will be supported in the future.
-        Any PR to enhance this method is highly welcomed. Besides, this script doesn't support parallel running the same model
-        for multiple times, and this will be fixed in the future development.
+        请注意，此函数只能在 Linux 下工作。将来会支持 MacOS 和 Windows。
+        非常欢迎任何有助于增强此方法的 PR。此外，此脚本不支持并行多次运行同一模型，
+        这将在未来的开发中修复。
 
-        Parameters:
+        参数:
         -----------
         times : int
-            determines how many times the model should be running.
+            确定模型应该运行多少次。
         models : str or list
-            determines the specific model or list of models to run or exclude.
+            确定要运行或排除的特定模型或模型列表。
         exclude : boolean
-            determines whether the model being used is excluded or included.
+            确定是排除还是包含正在使用的模型。
         dataset : str
-            determines the dataset to be used for each model.
-        universe  : str
-            the stock universe of the dataset.
-            default "" indicates that
+            确定用于每个模型的数据集。
+        universe : str
+            数据集的股票领域。
+            默认 "" 表示
         qlib_uri : str
-            the uri to install qlib with pip
-            it could be URI on the remote or local path (NOTE: the local path must be an absolute path)
+            用 pip 安装 qlib 的 uri
+            可以是远程 URI 或本地路径（注意：本地路径必须是绝对路径）
         exp_folder_name: str
-            the name of the experiment folder
+            实验文件夹的名称
         wait_before_rm_env : bool
-            wait before remove environment.
+            在删除环境之前等待。
         wait_when_err : bool
-            wait when errors raised when executing commands
+            在执行命令时出现错误时等待
 
-        Usage:
+        用法:
         -------
-        Here are some use cases of the function in the bash:
+        以下是该函数在 bash 中的一些用例：
 
-        The run_all_models  will decide which config to run based no `models` `dataset`  `universe`
-        Example 1):
+        run_all_models 将根据 `models` `dataset` `universe` 决定运行哪个配置
+        示例 1):
 
-            models="lightgbm", dataset="Alpha158", universe="" will result in running the following config
+            models="lightgbm", dataset="Alpha158", universe="" 将导致运行以下配置
             examples/benchmarks/LightGBM/workflow_config_lightgbm_Alpha158.yaml
 
-            models="lightgbm", dataset="Alpha158", universe="csi500" will result in running the following config
+            models="lightgbm", dataset="Alpha158", universe="csi500" 将导致运行以下配置
             examples/benchmarks/LightGBM/workflow_config_lightgbm_Alpha158_csi500.yaml
 
         .. code-block:: bash
 
-            # Case 1 - run all models multiple times
+            # 情况 1 - 多次运行所有模型
             python run_all_model.py run 3
 
-            # Case 2 - run specific models multiple times
+            # 情况 2 - 多次运行特定模型
             python run_all_model.py run 3 mlp
 
-            # Case 3 - run specific models multiple times with specific dataset
+            # 情况 3 - 使用特定数据集多次运行特定模型
             python run_all_model.py run 3 mlp Alpha158
 
-            # Case 4 - run other models except those are given as arguments for multiple times
+            # 情况 4 - 运行除作为参数给出的模型之外的其他模型多次
             python run_all_model.py run 3 [mlp,tft,lstm] --exclude=True
 
-            # Case 5 - run specific models for one time
+            # 情况 5 - 运行特定模型一次
             python run_all_model.py run --models=[mlp,lightgbm]
 
-            # Case 6 - run other models except those are given as arguments for one time
+            # 情况 6 - 运行除作为参数给出的模型之外的其他模型一次
             python run_all_model.py run --models=[mlp,tft,sfm] --exclude=True
 
-            # Case 7 - run lightgbm model on csi500.
+            # 情况 7 - 在 csi500 上运行 lightgbm 模型。
             python run_all_model.py run 3 lightgbm Alpha158 csi500
 
         """
         self._init_qlib(exp_folder_name)
 
-        # get all folders
+        # 获取所有文件夹
         folders = get_all_folders(models, exclude)
-        # init error messages:
+        # 初始化错误消息：
         errors = dict()
-        # run all the model for iterations
+        # 迭代运行所有模型
         for fn in folders:
-            # get all files
-            sys.stderr.write("Retrieving files...\n")
+            # 获取所有文件
+            sys.stderr.write("正在检索文件...\n")
             yaml_path, req_path = get_all_files(folders[fn], dataset, universe=universe)
             if yaml_path is None:
-                sys.stderr.write(f"There is no {dataset}.yaml file in {folders[fn]}")
+                sys.stderr.write(f"在 {folders[fn]} 中没有 {dataset}.yaml 文件")
                 continue
             sys.stderr.write("\n")
-            # create env by anaconda
+            # 通过 anaconda 创建环境
             temp_dir, env_path, python_path, conda_activate = create_env()
 
-            # install requirements.txt
-            sys.stderr.write("Installing requirements.txt...\n")
+            # 安装 requirements.txt
+            sys.stderr.write("正在安装 requirements.txt...\n")
             with open(req_path) as f:
                 content = f.read()
             if "torch" in content:
-                # automatically install pytorch according to nvidia's version
+                # 根据 nvidia 版本自动安装 pytorch
                 execute(
                     f"{python_path} -m pip install light-the-torch", wait_when_err=wait_when_err
-                )  # for automatically installing torch according to the nvidia driver
+                )  # 用于根据 nvidia 驱动程序自动安装 torch
                 execute(
                     f"{env_path / 'bin' / 'ltt'} install --install-cmd '{python_path} -m pip install {{packages}}' -- -r {req_path}",
                     wait_when_err=wait_when_err,
@@ -334,33 +418,33 @@ class ModelRunner:
                 execute(f"{python_path} -m pip install -r {req_path}", wait_when_err=wait_when_err)
             sys.stderr.write("\n")
 
-            # read yaml, remove seed kwargs of model, and then save file in the temp_dir
+            # 读取 yaml，删除模型的 seed 参数，然后将文件保存在临时目录中
             yaml_path = gen_yaml_file_without_seed_kwargs(yaml_path, temp_dir)
-            # setup gpu for tft
+            # 为 tft 设置 gpu
             if fn == "TFT":
                 execute(
                     f"conda install -y --prefix {env_path} anaconda cudatoolkit=10.0 && conda install -y --prefix {env_path} cudnn",
                     wait_when_err=wait_when_err,
                 )
                 sys.stderr.write("\n")
-            # install qlib
-            sys.stderr.write("Installing qlib...\n")
-            execute(f"{python_path} -m pip install --upgrade pip", wait_when_err=wait_when_err)  # TODO: FIX ME!
-            execute(f"{python_path} -m pip install --upgrade cython", wait_when_err=wait_when_err)  # TODO: FIX ME!
+            # 安装 qlib
+            sys.stderr.write("正在安装 qlib...\n")
+            execute(f"{python_path} -m pip install --upgrade pip", wait_when_err=wait_when_err)  # TODO: 修复此处的硬编码路径
+            execute(f"{python_path} -m pip install --upgrade cython", wait_when_err=wait_when_err)  # TODO: 修复此处的硬编码路径
             if fn == "TFT":
                 execute(
                     f"cd {env_path} && {python_path} -m pip install --upgrade --force-reinstall --ignore-installed PyYAML -e {qlib_uri}",
                     wait_when_err=wait_when_err,
-                )  # TODO: FIX ME!
+                )  # TODO: 修复此处的硬编码路径
             else:
                 execute(
                     f"cd {env_path} && {python_path} -m pip install --upgrade --force-reinstall -e {qlib_uri}",
                     wait_when_err=wait_when_err,
-                )  # TODO: FIX ME!
+                )  # TODO: 修复此处的硬编码路径
             sys.stderr.write("\n")
-            # run workflow_by_config for multiple times
+            # 多次运行 workflow_by_config
             for i in range(times):
-                sys.stderr.write(f"Running the model: {fn} for iteration {i+1}...\n")
+                sys.stderr.write(f"正在运行模型: {fn}，第 {i+1} 次迭代...\n")
                 errs = execute(
                     f"{python_path} {env_path / 'bin' / 'qrun'} {yaml_path} {fn} {exp_folder_name}",
                     wait_when_err=wait_when_err,
@@ -370,34 +454,37 @@ class ModelRunner:
                     _errs.update({i: errs})
                     errors[fn] = _errs
                 sys.stderr.write("\n")
-            # remove env
-            sys.stderr.write(f"Deleting the environment: {env_path}...\n")
+            # 删除环境
+            sys.stderr.write(f"正在删除环境: {env_path}...\n")
             if wait_before_rm_env:
-                input("Press Enter to Continue")
+                input("按回车键继续")
             shutil.rmtree(env_path)
-        # print errors
-        sys.stderr.write(f"Here are some of the errors of the models...\n")
+        # 打印错误
+        sys.stderr.write(f"以下是模型的一些错误...\n")
         pprint(errors)
         self._collect_results(exp_folder_name, dataset)
 
     def _collect_results(self, exp_folder_name, dataset):
+        """
+        收集、处理并保存所有模型的结果。
+        """
         folders = get_all_folders(exp_folder_name, dataset)
-        # getting all results
-        sys.stderr.write(f"Retrieving results...\n")
+        # 获取所有结果
+        sys.stderr.write(f"正在检索结果...\n")
         results = get_all_results(folders)
         if len(results) > 0:
-            # calculating the mean and std
-            sys.stderr.write(f"Calculating the mean and std of results...\n")
+            # 计算均值和标准差
+            sys.stderr.write(f"正在计算结果的均值和标准差...\n")
             results = cal_mean_std(results)
-            # generating md table
-            sys.stderr.write(f"Generating markdown table...\n")
+            # 生成 md 表格
+            sys.stderr.write(f"正在生成 markdown 表格...\n")
             gen_and_save_md_table(results, dataset)
             sys.stderr.write("\n")
         sys.stderr.write("\n")
-        # move results folder
+        # 移动结果文件夹
         shutil.move(exp_folder_name, exp_folder_name + f"_{dataset}_{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}")
         shutil.move("table.md", f"table_{dataset}_{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.md")
 
 
 if __name__ == "__main__":
-    fire.Fire(ModelRunner)  # run all the model
+    fire.Fire(ModelRunner)  # 运行所有模型

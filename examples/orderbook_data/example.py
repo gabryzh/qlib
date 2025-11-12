@@ -9,14 +9,14 @@ import unittest
 
 class TestClass(unittest.TestCase):
     """
-    Useful commands
-    - run all tests: pytest examples/orderbook_data/example.py
-    - run a single test:  pytest -s --pdb --disable-warnings examples/orderbook_data/example.py::TestClass::test_basic01
+    有用的命令
+    - 运行所有测试: pytest examples/orderbook_data/example.py
+    - 运行单个测试:  pytest -s --pdb --disable-warnings examples/orderbook_data/example.py::TestClass::test_basic01
     """
 
     def setUp(self):
         """
-        Configure for arctic
+        为 arctic 进行配置
         """
         provider_uri = "~/.qlib/qlib_data/yahoo_cn_1min"
         qlib.init(
@@ -33,15 +33,15 @@ class TestClass(unittest.TestCase):
             dataset_provider={
                 "class": "LocalDatasetProvider",
                 "kwargs": {
-                    "align_time": False,  # Order book is not fixed, so it can't be align to a shared fixed frequency calendar
+                    "align_time": False,  # 订单簿不是固定的，因此无法与共享的固定频率日历对齐
                 },
             },
         )
-        # self.stocks_list = ["SH600519"]
         self.stocks_list = ["SZ000725"]
 
     def test_basic(self):
-        # NOTE: this data contains a lot of zeros in $askX and $bidX
+        """测试基础功能"""
+        # 注意：此数据在 $askX 和 $bidX 中包含大量零
         df = D.features(
             self.stocks_list,
             fields=["$ask1", "$ask2", "$bid1", "$bid2"],
@@ -52,10 +52,12 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_basic_without_time(self):
+        """测试没有时间的基础功能"""
         df = D.features(self.stocks_list, fields=["$ask1"], freq="ticks")
         print(df)
 
     def test_basic01(self):
+        """测试基础功能 01"""
         df = D.features(
             self.stocks_list,
             fields=["TResample($ask1, '1min', 'last')"],
@@ -66,6 +68,7 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_basic02(self):
+        """测试基础功能 02"""
         df = D.features(
             self.stocks_list,
             fields=["$function_code"],
@@ -76,6 +79,7 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_basic03(self):
+        """测试基础功能 03"""
         df = D.features(
             self.stocks_list,
             fields=["$function_code"],
@@ -85,8 +89,8 @@ class TestClass(unittest.TestCase):
         )
         print(df)
 
-    # Here are some popular expressions for high-frequency
-    # 1) some shared expression
+    # 以下是一些流行的高频表达式
+    # 1) 一些共享表达式
     expr_sum_buy_ask_1 = "(TResample($ask1, '1min', 'last') + TResample($bid1, '1min', 'last'))"
     total_volume = (
         "TResample("
@@ -99,6 +103,7 @@ class TestClass(unittest.TestCase):
         return "TResample(" + "+".join([f"${name}{i}" for i in range(1, 11)]) + ",'1min', '{}')".format(method)
 
     def test_exp_01(self):
+        """测试表达式 01"""
         exprs = []
         names = []
         for name in ["asize", "bsize"]:
@@ -109,8 +114,8 @@ class TestClass(unittest.TestCase):
         df.columns = names
         print(df)
 
-    # 2) some often used papers;
     def test_exp_02(self):
+        """测试表达式 02"""
         spread_func = (
             lambda index: f"2 * TResample($ask{index} - $bid{index}, '1min', 'last') / {self.expr_sum_buy_ask_1}"
         )
@@ -128,6 +133,7 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_exp_03(self):
+        """测试表达式 03"""
         expr3_func1 = (
             lambda name, index_left, index_right: f"2 * TResample(Abs(${name}{index_left} - ${name}{index_right}), '1min', 'last') / {self.expr_sum_buy_ask_1}"
         )
@@ -142,6 +148,7 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_exp_04(self):
+        """测试表达式 04"""
         exprs = []
         names = []
         for name in ["asize", "bsize"]:
@@ -153,6 +160,7 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_exp_05(self):
+        """测试表达式 05"""
         exprs = [
             f"2 * Sub({ self.total_func('ask', 'last')}, {self.total_func('bid', 'last')})/{self.expr_sum_buy_ask_1}",
             f"Sub({ self.total_func('asize', 'mean')}, {self.total_func('bsize', 'mean')})/{self.total_volume}",
@@ -163,8 +171,8 @@ class TestClass(unittest.TestCase):
         df.columns = names
         print(df)
 
-    #  (p|v)_diff_(ask|bid|asize|bsize)_(time_interval)
     def test_exp_06(self):
+        """测试表达式 06"""
         t = 3
         expr6_price_func = (
             lambda name, index, method: f'2 * (TResample(${name}{index}, "{t}s", "{method}") - Ref(TResample(${name}{index}, "{t}s", "{method}"), 1)) / {t}'
@@ -187,22 +195,14 @@ class TestClass(unittest.TestCase):
         df.columns = names
         print(df)
 
-    # TODOs:
-    # Following expressions may be implemented in the future
-    # expr7_2 = lambda funccode, bsflag, time_interval: \
-    #     "TResample(TRolling(TEq(@transaction.function_code,  {}) & TEq(@transaction.bs_flag ,{}), '{}s', 'sum') / \
-    #     TRolling(@transaction.function_code, '{}s', 'count') , '1min', 'mean')".format(ord(funccode), bsflag,time_interval,time_interval)
-    # create_dataset(7, "SH600000", [expr7_2("C")] + [expr7(funccode, ordercode) for funccode in ['B','S'] for ordercode in ['0','1']])
-    # create_dataset(7,  ["SH600000"], [expr7_2("C", 48)] )
-
     @staticmethod
     def expr7_init(funccode, ordercode, time_interval):
-        # NOTE: based on on order frequency (i.e. freq="order")
+        # 注意：基于订单频率 (即 freq="order")
         return f"Rolling(Eq($function_code,  {ord(funccode)}) & Eq($order_kind ,{ord(ordercode)}), '{time_interval}s', 'sum') / Rolling($function_code, '{time_interval}s', 'count')"
 
-    # (la|lb|ma|mb|ca|cb)_intensity_(time_interval)
     def test_exp_07_1(self):
-        # NOTE: based on transaction frequency (i.e. freq="transaction")
+        """测试表达式 07_1"""
+        # 注意：基于交易频率 (即 freq="transaction")
         expr7_3 = (
             lambda funccode, code, time_interval: f"TResample(Rolling(Eq($function_code,  {ord(funccode)}) & {code}($ask_order, $bid_order) , '{time_interval}s', 'sum')   / Rolling($function_code, '{time_interval}s', 'count') , '1min', 'mean')"
         )
@@ -217,7 +217,8 @@ class TestClass(unittest.TestCase):
     trans_dict = {"B": "a", "S": "b", "0": "l", "1": "m"}
 
     def test_exp_07_2(self):
-        # NOTE: based on on order frequency
+        """测试表达式 07_2"""
+        # 注意：基于订单频率
         expr7 = (
             lambda funccode, ordercode, time_interval: f"TResample({self.expr7_init(funccode, ordercode, time_interval)}, '1min', 'mean')"
         )
@@ -234,11 +235,11 @@ class TestClass(unittest.TestCase):
 
     @staticmethod
     def expr7_3_init(funccode, code, time_interval):
-        # NOTE: It depends on transaction frequency
+        # 注意：它取决于交易频率
         return f"Rolling(Eq($function_code,  {ord(funccode)}) & {code}($ask_order, $bid_order) , '{time_interval}s', 'sum') / Rolling($function_code, '{time_interval}s', 'count')"
 
-    # (la|lb|ma|mb|ca|cb)_relative_intensity_(time_interval_small)_(time_interval_big)
     def test_exp_08_1(self):
+        """测试表达式 08_1"""
         expr8_1 = (
             lambda funccode, ordercode, time_interval_short, time_interval_long: f"TResample(Gt({self.expr7_init(funccode, ordercode, time_interval_short)},{self.expr7_init(funccode, ordercode, time_interval_long)}), '1min', 'mean')"
         )
@@ -255,7 +256,8 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_exp_08_2(self):
-        # NOTE: It depends on transaction frequency
+        """测试表达式 08_2"""
+        # 注意：它取决于交易频率
         expr8_2 = (
             lambda funccode, ordercode, time_interval_short, time_interval_long: f"TResample(Gt({self.expr7_3_init(funccode, ordercode, time_interval_short)},{self.expr7_3_init(funccode, ordercode, time_interval_long)}), '1min', 'mean')"
         )
@@ -267,12 +269,8 @@ class TestClass(unittest.TestCase):
         df.columns = names
         print(df)
 
-    ## v9(la|lb|ma|mb|ca|cb)_diff_intensity_(time_interval1)_(time_interval2)
-    # 1) calculating the original data
-    # 2) Resample data to 3s and calculate the changing rate
-    # 3) Resample data to 1min
-
     def test_exp_09_trans(self):
+        """测试表达式 09_trans"""
         exprs = [
             f'TResample(Div(Sub(TResample({self.expr7_3_init("C", "Gt", "3")}, "3s", "last"), Ref(TResample({self.expr7_3_init("C", "Gt", "3")}, "3s","last"), 1)), 3), "1min", "mean")',
             f'TResample(Div(Sub(TResample({self.expr7_3_init("C", "Lt", "3")}, "3s", "last"), Ref(TResample({self.expr7_3_init("C", "Lt", "3")}, "3s","last"), 1)), 3), "1min", "mean")',
@@ -283,6 +281,7 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_exp_09_order(self):
+        """测试表达式 09_order"""
         exprs = []
         names = []
         for funccode in ["B", "S"]:
@@ -296,6 +295,7 @@ class TestClass(unittest.TestCase):
         print(df)
 
     def test_exp_10(self):
+        """测试表达式 10"""
         exprs = []
         names = []
         for i in [5, 10, 30, 60]:

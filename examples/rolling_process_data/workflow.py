@@ -13,18 +13,20 @@ from qlib.tests.data import GetData
 
 
 class RollingDataWorkflow:
+    """滚动数据工作流"""
     MARKET = "csi300"
     start_time = "2010-01-01"
     end_time = "2019-12-31"
     rolling_cnt = 5
 
     def _init_qlib(self):
-        """initialize qlib"""
-        provider_uri = "~/.qlib/qlib_data/cn_data"  # target_dir
+        """初始化 qlib"""
+        provider_uri = "~/.qlib/qlib_data/cn_data"  # 目标目录
         GetData().qlib_data(target_dir=provider_uri, region=REG_CN, exists_skip=True)
         qlib.init(provider_uri=provider_uri, region=REG_CN)
 
     def _dump_pre_handler(self, path):
+        """转储预处理器"""
         handler_config = {
             "class": "Alpha158",
             "module_path": "qlib.contrib.data.handler",
@@ -41,11 +43,13 @@ class RollingDataWorkflow:
         pre_handler.to_pickle(path)
 
     def _load_pre_handler(self, path):
+        """加载预处理器"""
         with open(path, "rb") as file_dataset:
             pre_handler = pickle.load(file_dataset)
         return pre_handler
 
     def rolling_process(self):
+        """滚动处理"""
         self._init_qlib()
         self._dump_pre_handler("pre_handler.pkl")
         pre_handler = self._load_pre_handler("pre_handler.pkl")
@@ -92,7 +96,7 @@ class RollingDataWorkflow:
         dataset = init_instance_by_config(dataset_config)
 
         for rolling_offset in range(self.rolling_cnt):
-            print(f"===========rolling{rolling_offset} start===========")
+            print(f"===========滚动{rolling_offset}开始===========")
             if rolling_offset:
                 dataset.config(
                     handler_kwargs={
@@ -126,8 +130,8 @@ class RollingDataWorkflow:
 
             dtrain, dvalid, dtest = dataset.prepare(["train", "valid", "test"])
             print(dtrain, dvalid, dtest)
-            ## print or dump data
-            print(f"===========rolling{rolling_offset} end===========")
+            ## 打印或转储数据
+            print(f"===========滚动{rolling_offset}结束===========")
 
 
 if __name__ == "__main__":

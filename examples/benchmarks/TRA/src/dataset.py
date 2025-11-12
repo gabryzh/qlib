@@ -13,6 +13,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def _to_tensor(x):
+    """将输入转换为张量"""
     if not isinstance(x, torch.Tensor):
         return torch.tensor(x, dtype=torch.float, device=device)
     return x
@@ -20,23 +21,23 @@ def _to_tensor(x):
 
 def _create_ts_slices(index, seq_len):
     """
-    create time series slices from pandas index
+    从 pandas 索引创建时间序列切片
 
     Args:
-        index (pd.MultiIndex): pandas multiindex with <instrument, datetime> order
-        seq_len (int): sequence length
+        index (pd.MultiIndex): <instrument, datetime> 顺序的 pandas 多重索引
+        seq_len (int): 序列长度
     """
-    assert index.is_lexsorted(), "index should be sorted"
+    assert index.is_lexsorted(), "索引应已排序"
 
-    # number of dates for each code
+    # 每个代码的日期数
     sample_count_by_codes = pd.Series(0, index=index).groupby(level=0, group_keys=False).size().values
 
-    # start_index for each code
+    # 每个代码的 start_index
     start_index_of_codes = np.roll(np.cumsum(sample_count_by_codes), 1)
     start_index_of_codes[0] = 0
 
-    # all the [start, stop) indices of features
-    # features btw [start, stop) are used to predict the `stop - 1` label
+    # 所有特征的 [start, stop) 索引
+    # [start, stop) 之间的特征用于预测 `stop - 1` 标签
     slices = []
     for cur_loc, cur_cnt in zip(start_index_of_codes, sample_count_by_codes):
         for stop in range(1, cur_cnt + 1):
@@ -49,9 +50,9 @@ def _create_ts_slices(index, seq_len):
 
 
 def _get_date_parse_fn(target):
-    """get date parse function
+    """获取日期解析函数
 
-    This method is used to parse date arguments as target type.
+    此方法用于将日期参数解析为目标类型。
 
     Example:
         get_date_parse_fn('20120101')('2017-01-01') => '20170101'
@@ -69,18 +70,18 @@ def _get_date_parse_fn(target):
 
 
 class MTSDatasetH(DatasetH):
-    """Memory Augmented Time Series Dataset
+    """内存增强时间序列数据集
 
     Args:
-        handler (DataHandler): data handler
-        segments (dict): data split segments
-        seq_len (int): time series sequence length
-        horizon (int): label horizon (to mask historical loss for TRA)
-        num_states (int): how many memory states to be added (for TRA)
-        batch_size (int): batch size (<0 means daily batch)
-        shuffle (bool): whether shuffle data
-        pin_memory (bool): whether pin data to gpu memory
-        drop_last (bool): whether drop last batch < batch_size
+        handler (DataHandler): 数据处理器
+        segments (dict): 数据拆分段
+        seq_len (int): 时间序列序列长度
+        horizon (int): 标签范围（用于为 TRA 屏蔽历史损失）
+        num_states (int): 要添加的内存状态数（用于 TRA）
+        batch_size (int): 批量大小（<0 表示每日批量）
+        shuffle (bool): 是否打乱数据
+        pin_memory (bool): 是否将数据固定到 gpu 内存
+        drop_last (bool): 是否丢弃最后一个小于 batch_size 的批次
     """
 
     def __init__(
@@ -96,7 +97,7 @@ class MTSDatasetH(DatasetH):
         drop_last=False,
         **kwargs,
     ):
-        assert horizon > 0, "please specify `horizon` to avoid data leakage"
+        assert horizon > 0, "请指定 `horizon` 以避免数据泄漏"
 
         self.seq_len = seq_len
         self.horizon = horizon
@@ -105,15 +106,16 @@ class MTSDatasetH(DatasetH):
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.pin_memory = pin_memory
-        self.params = (batch_size, drop_last, shuffle)  # for train/eval switch
+        self.params = (batch_size, drop_last, shuffle)  # 用于训练/评估切换
 
         super().__init__(handler, segments, **kwargs)
 
     def setup_data(self, handler_kwargs: dict = None, **kwargs):
+        """设置数据"""
         super().setup_data()
 
-        # change index to <code, date>
-        # NOTE: we will use inplace sort to reduce memory use
+        # 将索引更改为 <code, date>
+        # 注意：我们将使用就地排序来减少内存使用
         df = self.handler._data
         df.index = df.index.swaplevel()
         df.sort_index(inplace=True)
@@ -122,22 +124,22 @@ class MTSDatasetH(DatasetH):
         self._label = df["label"].squeeze().astype("float32")
         self._index = df.index
 
-        # add memory to feature
+        # 将内存添加到特征
         self._data = np.c_[self._data, np.zeros((len(self._data), self.num_states), dtype=np.float32)]
 
-        # padding tensor
+        # 填充张量
         self.zeros = np.zeros((self.seq_len, self._data.shape[1]), dtype=np.float32)
 
-        # pin memory
+        # 固定内存
         if self.pin_memory:
             self._data = _to_tensor(self._data)
             self._label = _to_tensor(self._label)
             self.zeros = _to_tensor(self.zeros)
 
-        # create batch slices
+        # 创建批处理切片
         self.batch_slices = _create_ts_slices(self._index, self.seq_len)
 
-        # create daily slices
+        # 创建每日切片
         index = [slc.stop - 1 for slc in self.batch_slices]
         act_index = self.restore_index(index)
         daily_slices = {date: [] for date in sorted(act_index.unique(level=1))}
@@ -146,6 +148,7 @@ class MTSDatasetH(DatasetH):
         self.daily_slices = list(daily_slices.values())
 
     def _prepare_seg(self, slc, **kwargs):
+        """准备数据段"""
         fn = _get_date_parse_fn(self._index[0][1])
 
         if isinstance(slc, slice):
@@ -153,11 +156,11 @@ class MTSDatasetH(DatasetH):
         elif isinstance(slc, (list, tuple)):
             start, stop = slc
         else:
-            raise NotImplementedError(f"This type of input is not supported")
+            raise NotImplementedError(f"不支持此类型的输入")
         start_date = fn(start)
         end_date = fn(stop)
-        obj = copy.copy(self)  # shallow copy
-        # NOTE: Seriable will disable copy `self._data` so we manually assign them here
+        obj = copy.copy(self)  # 浅拷贝
+        # 注意：Seriable 将禁用复制 `self._data`，因此我们在此处手动分配它们
         obj._data = self._data
         obj._label = self._label
         obj._index = self._index
@@ -176,11 +179,13 @@ class MTSDatasetH(DatasetH):
         return obj
 
     def restore_index(self, index):
+        """恢复索引"""
         if isinstance(index, torch.Tensor):
             index = index.cpu().numpy()
         return self._index[index]
 
     def assign_data(self, index, vals):
+        """分配数据"""
         if isinstance(self._data, torch.Tensor):
             vals = _to_tensor(vals)
         elif isinstance(vals, torch.Tensor):
@@ -189,20 +194,22 @@ class MTSDatasetH(DatasetH):
         self._data[index, -self.num_states :] = vals
 
     def clear_memory(self):
+        """清除内存"""
         self._data[:, -self.num_states :] = 0
 
-    # TODO: better train/eval mode design
+    # TODO: 更好的训练/评估模式设计
     def train(self):
-        """enable traning mode"""
+        """启用训练模式"""
         self.batch_size, self.drop_last, self.shuffle = self.params
 
     def eval(self):
-        """enable evaluation mode"""
+        """启用评估模式"""
         self.batch_size = -1
         self.drop_last = False
         self.shuffle = False
 
     def _get_slices(self):
+        """获取切片"""
         if self.batch_size < 0:
             slices = self.daily_slices.copy()
             batch_size = -1 * self.batch_size
@@ -225,11 +232,11 @@ class MTSDatasetH(DatasetH):
         for i in range(len(slices))[::batch_size]:
             if self.drop_last and i + batch_size > len(slices):
                 break
-            # get slices for this batch
+            # 获取此批次的切片
             slices_subset = slices[i : i + batch_size]
             if self.batch_size < 0:
                 slices_subset = np.concatenate(slices_subset)
-            # collect data
+            # 收集数据
             data = []
             label = []
             index = []
@@ -245,7 +252,7 @@ class MTSDatasetH(DatasetH):
                 data.append(_data)
                 label.append(self._label[slc.stop - 1])
                 index.append(slc.stop - 1)
-            # concate
+            # 连接
             index = torch.tensor(index, device=device)
             if isinstance(data[0], torch.Tensor):
                 data = torch.stack(data)
@@ -253,5 +260,5 @@ class MTSDatasetH(DatasetH):
             else:
                 data = _to_tensor(np.stack(data))
                 label = _to_tensor(np.stack(label))
-            # yield -> generator
+            # yield -> 生成器
             yield {"data": data, "label": label, "index": index}

@@ -7,6 +7,12 @@ from qlib.tests.data import GetData
 
 
 def objective(trial):
+    """
+    Optuna 目标函数。
+
+    :param trial: Optuna trial 对象。
+    :return: 验证集上的最小损失。
+    """
     task = {
         "model": {
             "class": "LGBModel",
@@ -35,11 +41,15 @@ def objective(trial):
 
 
 if __name__ == "__main__":
+    # 初始化 Qlib
     provider_uri = "~/.qlib/qlib_data/cn_data"
     GetData().qlib_data(target_dir=provider_uri, region=REG_CN, exists_skip=True)
     qlib.init(provider_uri=provider_uri, region="cn")
 
+    # 初始化数据集
     dataset = init_instance_by_config(CSI300_DATASET_CONFIG)
 
+    # 创建 Optuna study
     study = optuna.Study(study_name="LGBM_158", storage="sqlite:///db.sqlite3")
+    # 运行优化
     study.optimize(objective, n_jobs=6)

@@ -2,9 +2,8 @@
 # Licensed under the MIT License.
 
 """
-This example is about how can simulate the OnlineManager based on rolling tasks.
+这个例子是关于如何基于滚动任务模拟 OnlineManager 的。
 """
-
 from pprint import pprint
 import fire
 import qlib
@@ -22,13 +21,14 @@ from qlib.contrib.strategy import TopkDropoutStrategy
 
 
 class OnlineSimulationExample:
+    """在线模拟示例"""
     def __init__(
         self,
         provider_uri="~/.qlib/qlib_data/cn_data",
         region="cn",
         exp_name="rolling_exp",
-        task_url="mongodb://10.0.0.4:27017/",  # not necessary when using TrainerR or DelayTrainerR
-        task_db_name="rolling_db",  # not necessary when using TrainerR or DelayTrainerR
+        task_url="mongodb://10.0.0.4:27017/",  # 使用 TrainerR 或 DelayTrainerR 时不是必需的
+        task_db_name="rolling_db",  # 使用 TrainerR 或 DelayTrainerR 时不是必需的
         task_pool="rolling_task",
         rolling_step=80,
         start_time="2018-09-10",
@@ -37,19 +37,19 @@ class OnlineSimulationExample:
         trainer="TrainerR",
     ):
         """
-        Init OnlineManagerExample.
+        初始化 OnlineManagerExample。
 
-        Args:
-            provider_uri (str, optional): the provider uri. Defaults to "~/.qlib/qlib_data/cn_data".
-            region (str, optional): the stock region. Defaults to "cn".
-            exp_name (str, optional): the experiment name. Defaults to "rolling_exp".
-            task_url (str, optional): your MongoDB url. Defaults to "mongodb://10.0.0.4:27017/".
-            task_db_name (str, optional): database name. Defaults to "rolling_db".
-            task_pool (str, optional): the task pool name (a task pool is a collection in MongoDB). Defaults to "rolling_task".
-            rolling_step (int, optional): the step for rolling. Defaults to 80.
-            start_time (str, optional): the start time of simulating. Defaults to "2018-09-10".
-            end_time (str, optional): the end time of simulating. Defaults to "2018-10-31".
-            tasks (dict or list[dict]): a set of the task config waiting for rolling and training
+        参数:
+            provider_uri (str, optional): provider uri。默认为 "~/.qlib/qlib_data/cn_data"。
+            region (str, optional): 股票区域。默认为 "cn"。
+            exp_name (str, optional): 实验名称。默认为 "rolling_exp"。
+            task_url (str, optional): 您的 MongoDB url。默认为 "mongodb://10.0.0.4:27017/"。
+            task_db_name (str, optional): 数据库名称。默认为 "rolling_db"。
+            task_pool (str, optional): 任务池名称 (任务池是 MongoDB 中的一个集合)。默认为 "rolling_task"。
+            rolling_step (int, optional): 滚动的步长。默认为 80。
+            start_time (str, optional): 模拟的开始时间。默认为 "2018-09-10"。
+            end_time (str, optional): 模拟的结束时间。默认为 "2018-10-31"。
+            tasks (dict or list[dict]): 一组等待滚动和训练的任务配置
         """
         if tasks is None:
             tasks = [CSI100_RECORD_XGBOOST_TASK_CONFIG_ONLINE, CSI100_RECORD_LGB_TASK_CONFIG_ONLINE]
@@ -64,14 +64,13 @@ class OnlineSimulationExample:
         qlib.init(provider_uri=provider_uri, region=region, mongo=mongo_conf)
         self.rolling_gen = RollingGen(
             step=rolling_step, rtype=RollingGen.ROLL_SD, ds_extra_mod_func=None
-        )  # The rolling tasks generator, ds_extra_mod_func is None because we just need to simulate to 2018-10-31 and needn't change the handler end time.
+        )  # 滚动任务生成器，ds_extra_mod_func 为 None，因为我们只需要模拟到 2018-10-31，不需要更改处理程序的结束时间。
         if trainer == "TrainerRM":
             self.trainer = TrainerRM(self.exp_name, self.task_pool)
         elif trainer == "TrainerR":
             self.trainer = TrainerR(self.exp_name)
         else:
-            # TODO: support all the trainers: TrainerR, TrainerRM, DelayTrainerR
-            raise NotImplementedError(f"This type of input is not supported")
+            raise NotImplementedError(f"不支持此类型的输入")
         self.rolling_online_manager = OnlineManager(
             RollingStrategy(exp_name, task_template=tasks, rolling_gen=self.rolling_gen),
             trainer=self.trainer,
@@ -79,27 +78,28 @@ class OnlineSimulationExample:
         )
         self.tasks = tasks
 
-    # Reset all things to the first status, be careful to save important data
+    # 将所有内容重置为初始状态，注意保存重要数据
     def reset(self):
+        """重置"""
         if isinstance(self.trainer, TrainerRM):
             TaskManager(self.task_pool).remove()
         exp = R.get_exp(experiment_name=self.exp_name)
         for rid in exp.list_recorders():
             exp.delete_recorder(rid)
 
-    # Run this to run all workflow automatically
+    # 运行此项以自动运行所有工作流
     def main(self):
-        print("========== reset ==========")
+        """主函数"""
+        print("========== 重置 ==========")
         self.reset()
-        print("========== simulate ==========")
+        print("========== 模拟 ==========")
         self.rolling_online_manager.simulate(end_time=self.end_time)
-        print("========== collect results ==========")
+        print("========== 收集结果 ==========")
         print(self.rolling_online_manager.get_collector()())
-        print("========== signals ==========")
+        print("========== 信号 ==========")
         signals = self.rolling_online_manager.get_signals()
         print(signals)
-        # Backtesting
-        # - the code is based on this example https://qlib.readthedocs.io/en/latest/component/strategy.html
+        # 回测
         CSI300_BENCH = "SH000903"
         STRATEGY_CONFIG = {
             "topk": 30,
@@ -122,16 +122,13 @@ class OnlineSimulationExample:
         pprint(analysis_df)
 
     def worker(self):
-        # train tasks by other progress or machines for multiprocessing
-        # FIXME: only can call after finishing simulation when using DelayTrainerRM, or there will be some exception.
-        print("========== worker ==========")
+        """工作进程"""
+        print("========== 工作进程 ==========")
         if isinstance(self.trainer, TrainerRM):
             self.trainer.worker()
         else:
-            print(f"{type(self.trainer)} is not supported for worker.")
+            print(f"{type(self.trainer)} 不支持工作进程。")
 
 
 if __name__ == "__main__":
-    ## to run all workflow automatically with your own parameters, use the command below
-    # python online_management_simulate.py main --experiment_name="your_exp_name" --rolling_step=60
     fire.Fire(OnlineSimulationExample)

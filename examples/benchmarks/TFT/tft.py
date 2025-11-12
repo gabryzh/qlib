@@ -20,9 +20,9 @@ from qlib.data.dataset import DatasetH
 from qlib.data.dataset.handler import DataHandlerLP
 
 
-# To register new datasets, please add them here.
+# 要注册新的数据集，请在此处添加它们。
 ALLOW_DATASET = ["Alpha158", "Alpha360"]
-# To register new datasets, please add their configurations here.
+# 要注册新的数据集，请在此处添加它们的配置。
 DATASET_SETTING = {
     "Alpha158": {
         "feature_col": [
@@ -78,10 +78,24 @@ DATASET_SETTING = {
 
 
 def get_shifted_label(data_df, shifts=5, col_shift="LABEL0"):
+    """
+    获取移位后的标签。
+
+    :param data_df: 输入的数据帧。
+    :param shifts: 移位的位数。
+    :param col_shift: 要移位的列名。
+    :return: 移位后的标签列。
+    """
     return data_df[[col_shift]].groupby("instrument", group_keys=False).apply(lambda df: df.shift(shifts))
 
 
 def fill_test_na(test_df):
+    """
+    填充测试数据中的缺失值。
+
+    :param test_df: 测试数据帧。
+    :return: 填充缺失值后的测试数据帧。
+    """
     test_df_res = test_df.copy()
     feature_cols = ~test_df_res.columns.str.contains("label", case=False)
     test_feature_fna = (
@@ -92,17 +106,17 @@ def fill_test_na(test_df):
 
 
 def process_qlib_data(df, dataset, fillna=False):
-    """Prepare data to fit the TFT model.
+    """准备数据以适应 TFT 模型。
 
-    Args:
-      df: Original DataFrame.
-      fillna: Whether to fill the data with the mean values.
+    参数:
+      df: 原始 DataFrame。
+      fillna: 是否用平均值填充数据。
 
-    Returns:
-      Transformed DataFrame.
+    返回:
+      转换后的 DataFrame。
 
     """
-    # Several features selected manually
+    # 手动选择的几个特征
     feature_col = DATASET_SETTING[dataset]["feature_col"]
     label_col = [DATASET_SETTING[dataset]["label_col"]]
     temp_df = df.loc[:, feature_col + label_col]
@@ -121,14 +135,14 @@ def process_qlib_data(df, dataset, fillna=False):
 
 
 def process_predicted(df, col_name):
-    """Transform the TFT predicted data into Qlib format.
+    """将 TFT 预测的数据转换为 Qlib 格式。
 
-    Args:
-      df: Original DataFrame.
-      fillna: New column name.
+    参数:
+      df: 原始 DataFrame。
+      col_name: 新列名。
 
-    Returns:
-      Transformed DataFrame.
+    返回:
+      转换后的 DataFrame。
 
     """
     df_res = df.copy()
@@ -139,6 +153,14 @@ def process_predicted(df, col_name):
 
 
 def format_score(forecast_df, col_name="pred", label_shift=5):
+    """
+    格式化分数。
+
+    :param forecast_df: 预测数据帧。
+    :param col_name: 预测列的名称。
+    :param label_shift: 标签移位的位数。
+    :return: 格式化后的分数。
+    """
     pred = process_predicted(forecast_df, col_name=col_name)
     pred = get_shifted_label(pred, shifts=-label_shift, col_shift=col_name)
     pred = pred.dropna()[col_name]
@@ -146,13 +168,20 @@ def format_score(forecast_df, col_name="pred", label_shift=5):
 
 
 def transform_df(df, col_name="LABEL0"):
+    """
+    转换数据帧。
+
+    :param df: 输入的数据帧。
+    :param col_name: 标签列的名称。
+    :return: 转换后的数据帧。
+    """
     df_res = df["feature"]
     df_res[col_name] = df["label"]
     return df_res
 
 
 class TFTModel(ModelFT):
-    """TFT Model"""
+    """TFT 模型"""
 
     def __init__(self, **kwargs):
         self.model = None
@@ -160,18 +189,31 @@ class TFTModel(ModelFT):
         self.params.update(kwargs)
 
     def _prepare_data(self, dataset: DatasetH):
+        """
+        准备数据。
+
+        :param dataset: DatasetH 对象。
+        :return: 训练和验证数据帧。
+        """
         df_train, df_valid = dataset.prepare(
             ["train", "valid"], col_set=["feature", "label"], data_key=DataHandlerLP.DK_L
         )
         return transform_df(df_train), transform_df(df_valid)
 
     def fit(self, dataset: DatasetH, MODEL_FOLDER="qlib_tft_model", USE_GPU_ID=0, **kwargs):
+        """
+        拟合模型。
+
+        :param dataset: DatasetH 对象。
+        :param MODEL_FOLDER: 模型文件夹。
+        :param USE_GPU_ID: 使用的 GPU ID。
+        """
         DATASET = self.params["DATASET"]
         LABEL_SHIFT = self.params["label_shift"]
         LABEL_COL = DATASET_SETTING[DATASET]["label_col"]
 
         if DATASET not in ALLOW_DATASET:
-            raise AssertionError("The dataset is not supported, please make a new formatter to fit this dataset")
+            raise AssertionError("不支持该数据集，请创建一个新的格式化程序来适应此数据集")
 
         dtrain, dvalid = self._prepare_data(dataset)
         dtrain.loc[:, LABEL_COL] = get_shifted_label(dtrain, shifts=LABEL_SHIFT, col_shift=LABEL_COL)
@@ -190,12 +232,12 @@ class TFTModel(ModelFT):
         self.label_col = LABEL_COL
 
         use_gpu = (True, self.gpu_id)
-        # ===========================Training Process===========================
+        # ===========================训练过程===========================
         ModelClass = libs.tft_model.TemporalFusionTransformer
         if not isinstance(self.data_formatter, data_formatters.base.GenericDataFormatter):
             raise ValueError(
-                "Data formatters should inherit from"
-                + "AbstractDataFormatter! Type={}".format(type(self.data_formatter))
+                "数据格式化程序应继承自"
+                + "AbstractDataFormatter! 类型={}".format(type(self.data_formatter))
             )
 
         default_keras_session = tf.keras.backend.get_session()
@@ -207,7 +249,7 @@ class TFTModel(ModelFT):
 
         self.data_formatter.set_scalers(train)
 
-        # Sets up default params
+        # 设置默认参数
         fixed_params = self.data_formatter.get_experiment_params()
         params = self.data_formatter.get_default_model_params()
 
@@ -217,7 +259,7 @@ class TFTModel(ModelFT):
             os.makedirs(self.model_folder)
         params["model_folder"] = self.model_folder
 
-        print("*** Begin training ***")
+        print("*** 开始训练 ***")
         best_loss = np.Inf
 
         tf.reset_default_graph()
@@ -229,44 +271,44 @@ class TFTModel(ModelFT):
             self.model = ModelClass(params, use_cudnn=use_gpu[0])
             self.sess.run(tf.global_variables_initializer())
             self.model.fit(train_df=train, valid_df=valid)
-            print("*** Finished training ***")
+            print("*** 训练完成 ***")
             saved_model_dir = self.model_folder + "/" + "saved_model"
             if not os.path.exists(saved_model_dir):
                 os.makedirs(saved_model_dir)
             self.model.save(saved_model_dir)
 
             def extract_numerical_data(data):
-                """Strips out forecast time and identifier columns."""
+                """剥离 forecast_time 和 identifier 列。"""
                 return data[[col for col in data.columns if col not in {"forecast_time", "identifier"}]]
 
-            # p50_loss = utils.numpy_normalised_quantile_loss(
-            #    extract_numerical_data(targets), extract_numerical_data(p50_forecast),
-            #    0.5)
-            # p90_loss = utils.numpy_normalised_quantile_loss(
-            #    extract_numerical_data(targets), extract_numerical_data(p90_forecast),
-            #    0.9)
             tf.keras.backend.set_session(default_keras_session)
-        print("Training completed at {}.".format(dte.datetime.now()))
-        # ===========================Training Process===========================
+        print("训练于 {} 完成。".format(dte.datetime.now()))
+        # ===========================训练过程===========================
 
     def predict(self, dataset):
+        """
+        预测。
+
+        :param dataset: DatasetH 对象。
+        :return: 预测结果。
+        """
         if self.model is None:
-            raise ValueError("model is not fitted yet!")
+            raise ValueError("模型尚未拟合！")
         d_test = dataset.prepare("test", col_set=["feature", "label"])
         d_test = transform_df(d_test)
         d_test.loc[:, self.label_col] = get_shifted_label(d_test, shifts=self.label_shift, col_shift=self.label_col)
         test = process_qlib_data(d_test, self.expt_name, fillna=True).dropna()
 
         use_gpu = (True, self.gpu_id)
-        # ===========================Predicting Process===========================
+        # ===========================预测过程===========================
         default_keras_session = tf.keras.backend.get_session()
 
-        # Sets up default params
+        # 设置默认参数
         fixed_params = self.data_formatter.get_experiment_params()
         params = self.data_formatter.get_default_model_params()
         params = {**params, **fixed_params}
 
-        print("*** Begin predicting ***")
+        print("*** 开始预测 ***")
         tf.reset_default_graph()
 
         with self.tf_graph.as_default():
@@ -280,38 +322,38 @@ class TFTModel(ModelFT):
         predict50 = format_score(p50_forecast, "pred", 1)
         predict90 = format_score(p90_forecast, "pred", 1)
         predict = (predict50 + predict90) / 2  # self.label_shift
-        # ===========================Predicting Process===========================
+        # ===========================预测过程===========================
         return predict
 
     def finetune(self, dataset: DatasetH):
         """
-        finetune model
-        Parameters
+        微调模型
+        参数
         ----------
         dataset : DatasetH
-            dataset for finetuning
+            用于微调的数据集
         """
         pass
 
     def to_pickle(self, path: Union[Path, str]):
         """
-        Tensorflow model can't be dumped directly.
-        So the data should be save separately
+        Tensorflow 模型不能直接转储。
+        所以数据应该分开保存
 
-        **TODO**: Please implement the function to load the files
+        **TODO**: 请实现加载文件的函数
 
-        Parameters
+        参数
         ----------
         path : Union[Path, str]
-            the target path to be dumped
+            要转储的目标路径
         """
-        # FIXME: implementing saving tensorflow models
-        # save tensorflow model
+        # FIXME: 实现保存 tensorflow 模型
+        # 保存 tensorflow 模型
         # path = Path(path)
         # path.mkdir(parents=True)
         # self.model.save(path)
 
-        # save qlib model wrapper
+        # 保存 qlib 模型包装器
         drop_attrs = ["model", "tf_graph", "sess", "data_formatter"]
         orig_attr = {}
         for attr in drop_attrs:

@@ -8,15 +8,29 @@ from qlib.contrib.data.handler import DataHandlerLP, _DEFAULT_LEARN_PROCESSORS, 
 
 
 class Avg15minLoader(QlibDataLoader):
+    """
+    15分钟平均数据加载器。
+    """
     def load(self, instruments=None, start_time=None, end_time=None) -> pd.DataFrame:
+        """
+        加载数据。
+
+        :param instruments: 股票代码列表。
+        :param start_time: 开始时间。
+        :param end_time: 结束时间。
+        :return: 加载的数据帧。
+        """
         df = super(Avg15minLoader, self).load(instruments, start_time, end_time)
         if self.is_group:
-            # feature_day(day freq) and feature_15min(1min freq, Average every 15 minutes) renamed feature
+            # 将 feature_day (日频) 和 feature_15min (1分钟频率，每15分钟平均一次) 重命名为 feature
             df.columns = df.columns.map(lambda x: ("feature", x[1]) if x[0].startswith("feature") else x)
         return df
 
 
 class Avg15minHandler(DataHandlerLP):
+    """
+    15分钟平均数据处理器。
+    """
     def __init__(
         self,
         instruments="csi500",
@@ -32,6 +46,9 @@ class Avg15minHandler(DataHandlerLP):
         inst_processors=None,
         **kwargs,
     ):
+        """
+        初始化 15分钟平均数据处理器。
+        """
         infer_processors = check_transform_proc(infer_processors, fit_start_time, fit_end_time)
         learn_processors = check_transform_proc(learn_processors, fit_start_time, fit_end_time)
         data_loader = Avg15minLoader(
@@ -48,7 +65,10 @@ class Avg15minHandler(DataHandlerLP):
         )
 
     def loader_config(self):
-        # Results for dataset: df: pd.DataFrame
+        """
+        加载器配置。
+
+        # 数据集结果: df: pd.DataFrame
         #   len(df.columns) == 6 + 6 * 16, len(df.index.get_level_values(level="datetime").unique()) == T
         #   df.columns: close0, close1, ..., close16, open0, ..., open16, ..., vwap16
         #       freq == day:
@@ -56,7 +76,7 @@ class Avg15minHandler(DataHandlerLP):
         #       freq == 1min:
         #           close1, ..., close16, ..., vwap1, ..., vwap16
         #   df.index.name == ["datetime", "instrument"]: pd.MultiIndex
-        # Example:
+        # 示例:
         #                          feature                        ...                  label
         #                           close0      open0       low0  ... vwap1 vwap16    LABEL0
         # datetime   instrument                                   ...
@@ -66,9 +86,9 @@ class Avg15minHandler(DataHandlerLP):
         # 2021-05-28 SZ300676     6.369684   6.495406   6.306568  ...   NaN    NaN -0.001321
         # 2021-05-31 SZ300676     6.601626   6.465643   6.465130  ...   NaN    NaN -0.023428
 
-        # features day: len(columns) == 6, freq = day
-        # $close is the closing price of the current trading day:
-        #   if the user needs to get the `close` before the last T days, use Ref($close, T-1), for example:
+        # 日频特征: len(columns) == 6, freq = day
+        # $close 是当前交易日的收盘价:
+        #   如果用户需要获取过去 T 天的 `close`，使用 Ref($close, T-1)，例如:
         #                                    $close  Ref($close, 1)  Ref($close, 2)  Ref($close, 3)  Ref($close, 4)
         #         instrument datetime
         #         SH600519   2021-06-01  244.271530
@@ -77,47 +97,47 @@ class Avg15minHandler(DataHandlerLP):
         #                    2021-06-04  245.421524      242.229889      242.205917      244.271530
         #                    2021-06-07  247.547089      245.421524      242.229889      242.205917      244.271530
 
-        # WARNING: Ref($close, N), if N == 0, Ref($close, N) ==> $close
-
+        # 警告: Ref($close, N)，如果 N == 0，Ref($close, N) ==> $close
+        """
         fields = ["$close", "$open", "$low", "$high", "$volume", "$vwap"]
         # names: close0, open0, ..., vwap0
         names = list(map(lambda x: x.strip("$") + "0", fields))
 
         config = {"feature_day": (fields, names)}
 
-        # features 15min: len(columns) == 6 * 16, freq = 1min
-        #   $close is the closing price of the current trading day:
-        #       if the user gets 'close' for the i-th 15min of the last T days, use `Ref(Mean($close, 15), (T-1) * 240 + i * 15)`, for example:
+        # 15分钟特征: len(columns) == 6 * 16, freq = 1min
+        #   $close 是当前交易日的收盘价:
+        #       如果用户获取过去 T 天的第 i 个 15分钟的 'close'，使用 `Ref(Mean($close, 15), (T-1) * 240 + i * 15)`，例如:
         #                                    Ref(Mean($close, 15), 225)  Ref(Mean($close, 15), 465)  Ref(Mean($close, 15), 705)
         #             instrument datetime
         #             SH600519   2021-05-31                  241.769897                  243.077942                  244.712997
         #                        2021-06-01                  244.271530                  241.769897                  243.077942
         #                        2021-06-02                  242.205917                  244.271530                  241.769897
 
-        # WARNING: Ref(Mean($close, 15), N), if N == 0, Ref(Mean($close, 15), N) ==> Mean($close, 15)
+        # 警告: Ref(Mean($close, 15), N)，如果 N == 0，Ref(Mean($close, 15), N) ==> Mean($close, 15)
 
-        # Results of the current script:
-        #   time:   09:00 --> 09:14,            ..., 14:45 --> 14:59
-        #   fields: Ref(Mean($close, 15), 225), ..., Mean($close, 15)
-        #   name:   close1,                     ..., close16
+        # 当前脚本的结果:
+        #   时间:   09:00 --> 09:14,            ..., 14:45 --> 14:59
+        #   字段: Ref(Mean($close, 15), 225), ..., Mean($close, 15)
+        #   名称:   close1,                     ..., close16
         #
 
-        # Expression description: take close as an example
+        # 表达式描述: 以 close 为例
         #   Mean($close, 15) ==> df["$close"].rolling(15, min_periods=1).mean()
         #   Ref(Mean($close, 15), 15) ==> df["$close"].rolling(15, min_periods=1).mean().shift(15)
 
-        #   NOTE: The last data of each trading day, which is the average of the i-th 15 minutes
+        #   注意: 每个交易日的最后一个数据，是第 i 个 15 分钟的平均值
 
-        # Average:
-        #   Average of the i-th 15-minute period of each trading day: 1 <= i <= 250 // 16
+        # 平均:
+        #   每个交易日第 i 个 15 分钟周期的平均值: 1 <= i <= 250 // 16
         #       Avg(15minutes): Ref(Mean($close, 15), 240 - i * 15)
         #
-        #   Average of the first 15 minutes of each trading day; i = 1
+        #   每个交易日第一个 15 分钟的平均值; i = 1
         #       Avg(09:00 --> 09:14), df.index.loc["09:14"]: Ref(Mean($close, 15), 240- 1 * 15) ==> Ref(Mean($close, 15), 225)
-        #   Average of the last 15 minutes of each trading day; i = 16
+        #   每个交易日最后一个 15 分钟的平均值; i = 16
         #       Avg(14:45 --> 14:59), df.index.loc["14:59"]: Ref(Mean($close, 15), 240 - 16 * 15) ==> Ref(Mean($close, 15), 0) ==> Mean($close, 15)
 
-        # 15min resample to day
+        # 15分钟重采样到日
         #   df.resample("1d").last()
         tmp_fields = []
         tmp_names = []
@@ -129,6 +149,6 @@ class Avg15minHandler(DataHandlerLP):
             tmp_fields += _fields
             tmp_names += _names
         config["feature_15min"] = (tmp_fields, tmp_names)
-        # label
+        # 标签
         config["label"] = (["Ref($close, -2)/Ref($close, -1) - 1"], ["LABEL0"])
         return config

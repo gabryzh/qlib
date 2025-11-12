@@ -12,6 +12,14 @@ OUTPUT_PATH = Path(os.path.join("data", "orders"))
 
 
 def generate_order(stock: str, start_idx: int, end_idx: int) -> bool:
+    """
+    生成订单。
+
+    :param stock: 股票代码。
+    :param start_idx: 开始索引。
+    :param end_idx: 结束索引。
+    :return: 是否成功生成订单。
+    """
     dataset = pd.read_pickle(DATA_PATH / f"{stock}.pkl")
     df = dataset.handler.fetch(level=None).reset_index()
     if len(df) == 0 or df.isnull().values.any() or min(df["$volume0"]) < 1e-5:
