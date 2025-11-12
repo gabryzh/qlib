@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+
+# 导入必要的库
 from functools import partial
 import sys
 from pathlib import Path
@@ -10,16 +12,24 @@ import pandas as pd
 from tqdm import tqdm
 from loguru import logger
 
+# 将上两级目录添加到系统路径，以便导入所需的模块
 CUR_DIR = Path(__file__).resolve().parent
 sys.path.append(str(CUR_DIR.parent.parent))
 
 from data_collector.index import IndexBase
 from data_collector.utils import get_instruments
 
+# 巴西股市IBOVESPA指数的成分股调整周期为每四个月一次，这里定义了每个周期的起始月份
+# 1Q: 1-4月 (起始日01-03), 2Q: 5-8月 (起始日05-01), 3Q: 9-12月 (起始日09-01)
 quarter_dict = {"1Q": "01-03", "2Q": "05-01", "3Q": "09-01"}
 
 
 class IBOVIndex(IndexBase):
+    """
+    用于收集巴西IBOVESPA指数成分股信息的类。
+    数据源自一个GitHub仓库，该仓库记录了指数的历史成分。
+    """
+    # GitHub仓库中历史成分股文件的URL模板
     ibov_index_composition = "https://raw.githubusercontent.com/igor17400/IBOV-HCI/main/historic_composition/{}.csv"
     years_4_month_periods = []
 
@@ -35,47 +45,26 @@ class IBOVIndex(IndexBase):
             index_name=index_name, qlib_dir=qlib_dir, freq=freq, request_retry=request_retry, retry_sleep=retry_sleep
         )
 
-        self.today: datetime = datetime.date.today()
+        self.today: datetime.date = datetime.date.today()
+        # 根据当前月份计算所属的四个月周期
         self.current_4_month_period = self.get_current_4_month_period(self.today.month)
         self.year = str(self.today.year)
+        # 生成从2003年至今的所有四个月周期列表
         self.years_4_month_periods = self.get_four_month_period()
 
     @property
     def bench_start_date(self) -> pd.Timestamp:
         """
-        The ibovespa index started on 2 January 1968 (wiki), however,
-        no suitable data source that keeps track of ibovespa's history
-        stocks composition has been found. Except from the repo indicated
-        in README. Which keeps track of such information starting from
-        the first quarter of 2003
+        IBOVESPA指数始于1968年1月2日，但目前找到的数据源仅从2003年第一季度开始记录。
+        因此，我们将基准开始日期设为2003年1月3日。
         """
         return pd.Timestamp("2003-01-03")
 
-    def get_current_4_month_period(self, current_month: int):
+    def get_current_4_month_period(self, current_month: int) -> str:
         """
-        This function is used to calculated what is the current
-        four month period for the current month. For example,
-        If the current month is August 8, its four month period
-        is 2Q.
-
-        OBS: In english Q is used to represent *quarter*
-        which means a three month period. However, in
-        portuguese we use Q to represent a four month period.
-        In other words,
-
-        Jan, Feb, Mar, Apr: 1Q
-        May, Jun, Jul, Aug: 2Q
-        Sep, Oct, Nov, Dez: 3Q
-
-        Parameters
-        ----------
-        month : int
-            Current month (1 <= month <= 12)
-
-        Returns
-        -------
-        current_4m_period:str
-            Current Four Month Period (1Q or 2Q or 3Q)
+        根据当前月份计算其所属的四个月周期。
+        巴西股市使用Q(Quarter)代表四个月的周期，不同于英语中代表三个月的季度。
+        1-4月: 1Q, 5-8月: 2Q, 9-12月: 3Q
         """
         if current_month < 5:
             return "1Q"
@@ -83,203 +72,141 @@ class IBOVIndex(IndexBase):
             return "2Q"
         if current_month <= 12:
             return "3Q"
-        else:
-            return -1
+        return "-1" # 表示错误
 
-    def get_four_month_period(self):
+    def get_four_month_period(self) -> list:
         """
-        The ibovespa index is updated every four months.
-        Therefore, we will represent each time period as 2003_1Q
-        which means 2003 first four mount period (Jan, Feb, Mar, Apr)
+        生成从2003年至今的所有历史四个月周期列表。
+        格式为 '年份_周期'，例如 '2003_1Q'。
         """
         four_months_period = ["1Q", "2Q", "3Q"]
         init_year = 2003
         now = datetime.datetime.now()
         current_year = now.year
         current_month = now.month
-        for year in [item for item in range(init_year, current_year)]:  # pylint: disable=R1721
+
+        # 遍历历史年份
+        for year in range(init_year, current_year):
             for el in four_months_period:
-                self.years_4_month_periods.append(str(year) + "_" + el)
-        # For current year the logic must be a little different
+                self.years_4_month_periods.append(f"{year}_{el}")
+
+        # 处理当前年份
         current_4_month_period = self.get_current_4_month_period(current_month)
         for i in range(int(current_4_month_period[0])):
-            self.years_4_month_periods.append(str(current_year) + "_" + str(i + 1) + "Q")
+            self.years_4_month_periods.append(f"{current_year}_{i+1}Q")
+
         return self.years_4_month_periods
 
     def format_datetime(self, inst_df: pd.DataFrame) -> pd.DataFrame:
-        """formatting the datetime in an instrument
-
-        Parameters
-        ----------
-        inst_df: pd.DataFrame
-            inst_df.columns = [self.SYMBOL_FIELD_NAME, self.START_DATE_FIELD, self.END_DATE_FIELD]
-
-        Returns
-        -------
-        inst_df: pd.DataFrame
-
-        """
-        logger.info("Formatting Datetime")
+        """格式化instrument文件中的日期时间列。"""
+        logger.info("正在格式化日期时间...")
         if self.freq != "day":
+            # 对于非日线频率，结束时间设置为当天的23:59
             inst_df[self.END_DATE_FIELD] = inst_df[self.END_DATE_FIELD].apply(
                 lambda x: (pd.Timestamp(x) + pd.Timedelta(hours=23, minutes=59)).strftime("%Y-%m-%d %H:%M:%S")
             )
         else:
+            # 对于日线频率，格式化为 YYYY-MM-DD
             inst_df[self.START_DATE_FIELD] = inst_df[self.START_DATE_FIELD].apply(
-                lambda x: (pd.Timestamp(x)).strftime("%Y-%m-%d")
+                lambda x: pd.Timestamp(x).strftime("%Y-%m-%d")
             )
-
             inst_df[self.END_DATE_FIELD] = inst_df[self.END_DATE_FIELD].apply(
-                lambda x: (pd.Timestamp(x)).strftime("%Y-%m-%d")
+                lambda x: pd.Timestamp(x).strftime("%Y-%m-%d")
             )
         return inst_df
 
-    def format_quarter(self, cell: str):
+    def format_quarter(self, cell: str) -> str:
         """
-        Parameters
-        ----------
-        cell: str
-            It must be on the format 2003_1Q --> years_4_month_periods
-
-        Returns
-        ----------
-        date: str
-            Returns date in format 2003-03-01
+        将 '年份_周期' 格式的字符串转换为 'YYYY-MM-DD' 格式的日期字符串。
         """
         cell_split = cell.split("_")
-        return cell_split[0] + "-" + quarter_dict[cell_split[1]]
+        return f"{cell_split[0]}-{quarter_dict[cell_split[1]]}"
 
-    def get_changes(self):
+    def get_changes(self) -> pd.DataFrame:
         """
-        Access the index historic composition and compare it quarter
-        by quarter and year by year in order to generate a file that
-        keeps track of which stocks have been removed and which have
-        been added.
-
-        The Dataframe used as reference will provided the index
-        composition for each year an quarter:
-        pd.DataFrame:
-            symbol
-            SH600000
-            SH600001
-            .
-            .
-            .
-
-        Parameters
-        ----------
-        self: is used to represent the instance of the class.
-
-        Returns
-        ----------
-        pd.DataFrame:
-            symbol      date        type
-            SH600000  2019-11-11    add
-            SH600001  2020-11-10    remove
-            dtypes:
-                symbol: str
-                date: pd.Timestamp
-                type: str, value from ["add", "remove"]
+        通过比较相邻两个周期的成分股列表，获取成分股的调入和调出记录。
         """
-        logger.info("Getting companies changes in {} index ...".format(self.index_name))
+        logger.info(f"正在获取 {self.index_name} 指数的成分股变动...")
 
         try:
             df_changes_list = []
+            # 遍历所有历史周期（除了最后一个）
             for i in tqdm(range(len(self.years_4_month_periods) - 1)):
-                df = pd.read_csv(
+                # 读取当前周期和下一个周期的成分股列表
+                df_current = pd.read_csv(
                     self.ibov_index_composition.format(self.years_4_month_periods[i]), on_bad_lines="skip"
                 )["symbol"]
-                df_ = pd.read_csv(
+                df_next = pd.read_csv(
                     self.ibov_index_composition.format(self.years_4_month_periods[i + 1]), on_bad_lines="skip"
                 )["symbol"]
 
-                ## Remove Dataframe
-                remove_date = (
-                    self.years_4_month_periods[i].split("_")[0]
-                    + "-"
-                    + quarter_dict[self.years_4_month_periods[i].split("_")[1]]
-                )
-                list_remove = list(df[~df.isin(df_)])
+                # 找出被移除的股票（存在于当前周期，但不存在于下一周期）
+                remove_date = self.format_quarter(self.years_4_month_periods[i])
+                list_remove = list(df_current[~df_current.isin(df_next)])
                 df_removed = pd.DataFrame(
-                    {
-                        "date": len(list_remove) * [remove_date],
-                        "type": len(list_remove) * ["remove"],
-                        "symbol": list_remove,
-                    }
+                    {"date": remove_date, "type": "remove", "symbol": list_remove}
                 )
 
-                ## Add Dataframe
-                add_date = (
-                    self.years_4_month_periods[i + 1].split("_")[0]
-                    + "-"
-                    + quarter_dict[self.years_4_month_periods[i + 1].split("_")[1]]
-                )
-                list_add = list(df_[~df_.isin(df)])
+                # 找出新增的股票（存在于下一周期，但不存在于当前周期）
+                add_date = self.format_quarter(self.years_4_month_periods[i + 1])
+                list_add = list(df_next[~df_next.isin(df_current)])
                 df_added = pd.DataFrame(
-                    {"date": len(list_add) * [add_date], "type": len(list_add) * ["add"], "symbol": list_add}
+                    {"date": add_date, "type": "add", "symbol": list_add}
                 )
 
+                # 合并调入和调出记录
                 df_changes_list.append(pd.concat([df_added, df_removed], sort=False))
-                df = pd.concat(df_changes_list).reset_index(drop=True)
-                df["symbol"] = df["symbol"].astype(str) + ".SA"
 
-            return df
-
-        except Exception as E:
-            logger.error("An error occured while downloading 2008 index composition - {}".format(E))
-
-    def get_new_companies(self):
-        """
-        Get latest index composition.
-        The repo indicated on README has implemented a script
-        to get the latest index composition from B3 website using
-        selenium. Therefore, this method will download the file
-        containing such composition
-
-        Parameters
-        ----------
-        self: is used to represent the instance of the class.
-
-        Returns
-        ----------
-        pd.DataFrame:
-            symbol      start_date  end_date
-            RRRP3	    2020-11-13	2022-03-02
-            ALPA4	    2008-01-02	2022-03-02
-            dtypes:
-                symbol: str
-                start_date: pd.Timestamp
-                end_date: pd.Timestamp
-        """
-        logger.info("Getting new companies in {} index ...".format(self.index_name))
-
-        try:
-            ## Get index composition
-
-            df_index = pd.read_csv(
-                self.ibov_index_composition.format(self.year + "_" + self.current_4_month_period), on_bad_lines="skip"
-            )
-            df_date_first_added = pd.read_csv(
-                self.ibov_index_composition.format("date_first_added_" + self.year + "_" + self.current_4_month_period),
-                on_bad_lines="skip",
-            )
-            df = df_index.merge(df_date_first_added, on="symbol")[["symbol", "Date First Added"]]
-            df[self.START_DATE_FIELD] = df["Date First Added"].map(self.format_quarter)
-
-            # end_date will be our current quarter + 1, since the IBOV index updates itself every quarter
-            df[self.END_DATE_FIELD] = self.year + "-" + quarter_dict[self.current_4_month_period]
-            df = df[["symbol", self.START_DATE_FIELD, self.END_DATE_FIELD]]
+            df = pd.concat(df_changes_list).reset_index(drop=True)
+            # 为股票代码添加 ".SA" 后缀，以符合Yahoo Finance的格式
             df["symbol"] = df["symbol"].astype(str) + ".SA"
 
             return df
 
         except Exception as E:
-            logger.error("An error occured while getting new companies - {}".format(E))
+            logger.error(f"下载2008年指数成分时出错 - {E}")
+            return pd.DataFrame()
+
+
+    def get_new_companies(self) -> pd.DataFrame:
+        """
+        获取最新的指数成分股列表。
+        """
+        logger.info(f"正在获取 {self.index_name} 指数的最新成分股...")
+
+        try:
+            # 读取当前周期的成分股和首次纳入日期文件
+            df_index = pd.read_csv(
+                self.ibov_index_composition.format(f"{self.year}_{self.current_4_month_period}"), on_bad_lines="skip"
+            )
+            df_date_first_added = pd.read_csv(
+                self.ibov_index_composition.format(f"date_first_added_{self.year}_{self.current_4_month_period}"),
+                on_bad_lines="skip",
+            )
+
+            # 合并两个文件
+            df = df_index.merge(df_date_first_added, on="symbol")[["symbol", "Date First Added"]]
+            # 设置开始日期为首次纳入日期
+            df[self.START_DATE_FIELD] = df["Date First Added"].map(self.format_quarter)
+            # 设置结束日期为当前周期的开始日期
+            df[self.END_DATE_FIELD] = f"{self.year}-{quarter_dict[self.current_4_month_period]}"
+
+            df = df[["symbol", self.START_DATE_FIELD, self.END_DATE_FIELD]]
+            # 添加.SA后缀
+            df["symbol"] = df["symbol"].astype(str) + ".SA"
+
+            return df
+
+        except Exception as E:
+            logger.error(f"获取最新成分股时出错 - {E}")
+            return pd.DataFrame()
 
     def filter_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """一个辅助函数，用于从DataFrame中筛选出'Código'列。"""
         if "Código" in df.columns:
             return df.loc[:, ["Código"]].copy()
 
 
 if __name__ == "__main__":
+    # 使用fire库将get_instruments函数（已通过partial包装）暴露为命令行工具
     fire.Fire(partial(get_instruments, market_index="br_index"))

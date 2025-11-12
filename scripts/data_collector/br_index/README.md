@@ -1,61 +1,59 @@
-# iBOVESPA History Companies Collection
+# IBOVESPA 指数历史成分股收集说明
 
-## Requirements
+## 环境要求
 
-- Install the libs from the file `requirements.txt`
+-   安装 `requirements.txt` 文件中列出的依赖库：
 
     ```bash
     pip install -r requirements.txt
     ```
-- `requirements.txt` file was generated using python3.8
+-   注意：`requirements.txt` 文件是基于 Python 3.8 环境生成的。
 
-## For the ibovespa (IBOV) index, we have:
+---
 
-<hr/>
+## 关于 IBOVESPA (IBOV) 指数的数据收集
 
-### Method `get_new_companies`
+### `get_new_companies` 方法详解
 
-#### <b>Index start date</b>
+#### **指数起始日期**
 
-- The ibovespa index started on 2 January 1968 ([wiki](https://en.wikipedia.org/wiki/%C3%8Dndice_Bovespa)).  In order to use this start date in our `bench_start_date(self)` method, two conditions must be satisfied:
-    1) APIs used to download brazilian stocks (B3) historical prices must keep track of such historic data since 2 January 1968
+-   根据维基百科，IBOVESPA 指数始于1968年1月2日。然而，要在我们的 `bench_start_date` 方法中使用这个日期，必须满足两个条件：
+    1.  用于下载巴西股票历史价格的API（例如 Yahoo Finance）必须提供从1968年1月2日至今的数据。
+    2.  必须有某个网站或API提供从那天起的完整历史成分股列表。
 
-    2) Some website or API must provide, from that date, the historic index composition. In other words, the companies used to build the index .
+-   由于上述两个条件难以满足，我们在 `collector.py` 中将 `bench_start_date` 设置为 `pd.Timestamp("2003-01-03")`，原因如下：
+    1.  目前能找到的最早的IBOVESPA指数成分股数据源是从2003年第一季度开始的。
+    2.  Yahoo Finance 提供的数据也大致从这个日期开始。
 
-    As a consequence, the method `bench_start_date(self)` inside `collector.py` was implemented using `pd.Timestamp("2003-01-03")` due to two reasons
+-   在 `get_new_companies` 方法中，我们实现了一个逻辑来获取每只成分股在Yahoo Finance上有记录的最早日期。
 
-    1) The earliest ibov composition that have been found was from the first quarter of 2003. More informations about such composition can be seen on the sections below.
+#### **代码逻辑**
 
-    2) Yahoo finance, one of the libraries used to download symbols historic prices, keeps track from this date forward.
+-   最初的设想是对B3交易所的[官方网站](https://sistemaswebb3-listados.b3.com.br/indexPage/day/IBOV?language=pt-br)进行网络爬虫，该网站显示了当天的指数成分股。
 
-- Within the `get_new_companies` method, a logic was implemented to get, for each ibovespa component stock, the start date that yahoo finance keeps track of.
+-   然而，直接使用 `requests` + `Beautiful Soup` 的方法行不通，因为该网站上的成分股表格是通过内部脚本动态加载的，存在延迟。
 
-#### <b>Code Logic</b>
+-   为了解决这个问题，我们曾考虑使用 `selenium` 来模拟浏览器行为以获取数据。但最终，我们采用了一个更稳定的数据源（见下一节）。
 
-The code does a web scrapping into the B3's [website](https://sistemaswebb3-listados.b3.com.br/indexPage/day/IBOV?language=pt-br), which keeps track of the ibovespa stocks composition on the current day. 
+---
 
-Other approaches, such as `request` and `Beautiful Soup` could have been used. However, the website shows the table with the stocks with some delay, since it uses a script inside of it to obtain such compositions.
-Alternatively, `selenium` was used to download this stocks' composition in order to overcome this problem.
+### `get_changes` 方法详解
 
-Futhermore, the data downloaded from the selenium script  was preprocessed so it could be saved into the `csv` format stablished by `scripts/data_collector/index.py`.
+-   我们没能找到一个官方的、持续更新的IBOVESPA历史成分股数据源。
 
-<hr/>
+-   最终，我们使用了一个第三方的GitHub仓库：[https://github.com/igor17400/IBOV-HCI](https://github.com/igor17400/IBOV-HCI)。这个仓库提供了从2003年第一季度到2021年第三季度的指数历史成分数据。
 
-### Method `get_changes` 
+-   基于这个数据源，我们可以逐个周期地（每四个月）比较成分股列表，从而推断出每个周期内哪些股票被调入指数，哪些被调出。
 
-No suitable data source that keeps track of ibovespa's history stocks composition has been found. Except from this [repository](https://github.com/igor17400/IBOV-HCI) which provide such information have been used, however it only provides the data from the 1st quarter of 2003 to 3rd quarter of 2021.
+---
 
-With that reference, the index's composition can be compared quarter by quarter and year by year and then generate a file that keeps track of which stocks have been removed and which have been added each quarter and year.
-
-<hr/>
-
-### Collector Data
+### 数据收集命令
 
 ```bash
-# parse instruments, using in qlib/instruments.
-python collector.py --index_name IBOV --qlib_dir ~/.qlib/qlib_data/br_data --method parse_instruments
+# 解析完整的成分股历史，生成 qlib/instruments/ibov.txt 文件
+# 这个文件记录了每只成分股在指数中的完整生命周期
+python collector.py get_instruments --index_name IBOV --qlib_dir ~/.qlib/qlib_data/br_data --method parse_instruments
 
-# parse new companies
-python collector.py --index_name IBOV --qlib_dir ~/.qlib/qlib_data/br_data --method save_new_companies
+# 仅获取最新的成分股列表，并保存到 qlib/instruments/ibov_only_new.txt
+python collector.py get_instruments --index_name IBOV --qlib_dir ~/.qlib/qlib_data/br_data --method save_new_companies
 ```
-
