@@ -1,13 +1,16 @@
-loguru
-fire
-requests
-numpy
-pandas
-tqdm
-lxml
-yahooquery
-joblib
-beautifulsoup4
-bs4
-soupsieve
-baostock
+# 本文件列出了运行baostock_5min数据收集器所需的Python依赖包。
+# 可以使用 `pip install -r requirements.txt` 命令来安装所有这些依赖。
+
+loguru          # 一个功能强大且易于使用的日志记录库。
+fire            # Google开发的一个库，可以轻松地将任何Python对象转换为命令行界面。
+requests        # 用于发送HTTP请求的流行库，常用于API交互和网页抓取。
+numpy           # Python中科学计算的基础库，提供了强大的N维数组对象和相关工具。
+pandas          # 一个提供高性能、易于使用的数据结构和数据分析工具的库。
+tqdm            # 一个快速、可扩展的Python进度条库。
+lxml            # 一个用于处理XML和HTML的功能强大且Pythonic的库。
+yahooquery      # 一个用于从雅虎财经获取金融数据的Python接口。
+joblib          # 一套在Python中提供轻量级流水线的工具，常用于并行计算。
+beautifulsoup4  # 用于从HTML和XML文件中提取数据的库。
+bs4             # beautifulsoup4库的包名。
+soupsieve       # 一个为BeautifulSoup提供CSS选择器支持的库。
+baostock        # 一个免费、开源的A股证券数据平台，提供历史行情和财务数据。

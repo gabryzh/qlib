@@ -1,9 +1,12 @@
-baostock
-fire
-requests
-pandas
-lxml
-loguru
-tqdm
-yahooquery
-openpyxl
+# 本文件列出了运行cn_index数据收集器所需的Python依赖包。
+# 可以使用 `pip install -r requirements.txt` 命令来安装所有这些依赖。
+
+baostock        # 一个免费、开源的A股证券数据平台，本脚本用它来获取中证500的历史成分股。
+fire            # Google开发的一个库，可以轻松地将任何Python对象转换为命令行界面。
+requests        # 用于发送HTTP请求的流行库，用于从中证指数官网获取公告和数据。
+pandas          # 一个提供高性能、易于使用的数据结构和数据分析工具的库，用于处理和解析表格数据。
+lxml            # 一个用于处理XML和HTML的功能强大且Pythonic的库，pandas的read_html功能依赖它来解析网页表格。
+loguru          # 一个功能强大且易于使用的日志记录库。
+tqdm            # 一个快速、可扩展的Python进度条库，用于在处理长时间任务时显示进度。
+yahooquery      # 一个用于从雅虎财经获取金融数据的Python接口。
+openpyxl        # 一个用于读取和写入Excel 2010 xlsx/xlsm/xltx/xltm文件的库，pandas的read_excel功能依赖它。

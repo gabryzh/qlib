@@ -1,5 +1,8 @@
-baostock
-fire
-numpy
-pandas
-loguru
+# 本文件列出了运行future_trading_date_collector脚本所需的Python依赖包。
+# 可以使用 `pip install -r requirements.txt` 命令来安装所有这些依赖。
+
+baostock        # 一个免费、开源的A股证券数据平台，用于获取最新的交易日历。
+fire            # Google开发的一个库，可以轻松地将任何Python对象转换为命令行界面。
+numpy           # Python中科学计算的基础库，用于高效地保存日历文件。
+pandas          # 一个提供高性能、易于使用的数据结构和数据分析工具的库，用于处理日期和时间序列。
+loguru          # 一个功能强大且易于使用的日志记录库。

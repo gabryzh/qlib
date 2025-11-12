@@ -1,34 +1,40 @@
-async-generator==1.10
-attrs==21.4.0
-certifi==2022.12.7
-cffi==1.15.0
-charset-normalizer==2.0.12
-cryptography==36.0.1
-fire==0.4.0
-h11==0.13.0
-idna==3.3
-loguru==0.6.0
-lxml==4.9.1
-multitasking==0.0.10
-numpy==1.22.2
-outcome==1.1.0
-pandas==1.4.1
-pycoingecko==2.2.0
-pycparser==2.21
-pyOpenSSL==22.0.0
-PySocks==1.7.1
-python-dateutil==2.8.2
-pytz==2021.3
-requests==2.27.1
-requests-futures==1.0.0
-six==1.16.0
-sniffio==1.2.0
-sortedcontainers==2.4.0
-termcolor==1.1.0
-tqdm==4.63.0
-trio==0.20.0
-trio-websocket==0.9.2
-urllib3==1.26.19
-wget==3.2
-wsproto==1.1.0
-yahooquery==2.2.15
+# 本文件列出了运行br_index数据收集器所需的Python依赖包及其精确版本。
+# 使用 `pip install -r requirements.txt` 可以确保在不同环境中拥有一致的依赖配置。
+
+# --- 核心功能库 ---
+fire==0.4.0              # 用于快速创建命令行界面
+loguru==0.6.0            # 日志记录库
+numpy==1.22.2            # 数值计算基础库
+pandas==1.4.1            # 数据处理和分析库
+requests==2.27.1         # HTTP请求库，用于访问网络资源
+tqdm==4.63.0             # 进度条库
+yahooquery==2.2.15       # 从Yahoo Finance获取金融数据的接口库
+
+# --- 网络与异步处理 ---
+async-generator==1.10    # 异步生成器支持
+attrs==21.4.0            # `__init__`, `__repr__` 等类的魔法方法自动生成工具
+certifi==2022.12.7       # 提供Mozilla的根证书集合
+cffi==1.15.0             # 用于调用C语言代码的接口
+charset-normalizer==2.0.12 # 字符集检测工具
+cryptography==36.0.1     # 加密算法库
+h11==0.13.0              # HTTP/1.1协议的纯Python实现
+idna==3.3                # IDNA (Internationalized Domain Names in Applications) 协议支持
+lxml==4.9.1              # XML和HTML处理库
+multitasking==0.0.10     # 后台任务处理
+outcome==1.1.0           # 异步编程中的结果捕获
+pycparser==2.21          # C语言解析器
+pyOpenSSL==22.0.0        # OpenSSL的Python封装
+PySocks==1.7.1           # SOCKS代理支持
+python-dateutil==2.8.2   # 强大的日期时间解析工具
+pytz==2021.3             # 时区数据库
+requests-futures==1.0.0  # 对requests库的异步支持
+six==1.16.0              # Python 2和3的兼容性库
+sniffio==1.2.0           # 异步库的嗅探工具
+sortedcontainers==2.4.0  # 高效的、已排序的集合类型
+termcolor==1.1.0         # 在终端输出彩色文本
+trio==0.20.0             # 友好的异步编程库
+trio-websocket==0.9.2    # Trio的WebSocket实现
+urllib3==1.26.19         # 强大的、支持连接池的HTTP客户端
+wget==3.2                # 简单的文件下载工具
+wsproto==1.1.0           # WebSockets协议的纯Python实现
+pycoingecko==2.2.0       # CoinGecko API的封装，用于获取加密货币数据
