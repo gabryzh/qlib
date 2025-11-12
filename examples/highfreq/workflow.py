@@ -18,6 +18,7 @@ from highfreq_ops import get_calendar_day, DayLast, FFillNan, BFillNan, Date, Se
 
 
 class HighfreqWorkflow:
+    """高频数据工作流"""
     SPEC_CONF = {"custom_ops": [DayLast, FFillNan, BFillNan, Date, Select, IsNull, Cut], "expression_cache": None}
 
     MARKET = "all"
@@ -81,23 +82,23 @@ class HighfreqWorkflow:
     }
 
     def _init_qlib(self):
-        """initialize qlib"""
-        # use cn_data_1min data
+        """初始化 qlib"""
+        # 使用 cn_data_1min 数据
         QLIB_INIT_CONFIG = {**HIGH_FREQ_CONFIG, **self.SPEC_CONF}
         provider_uri = QLIB_INIT_CONFIG.get("provider_uri")
         GetData().qlib_data(target_dir=provider_uri, interval="1min", region=REG_CN, exists_skip=True)
         qlib.init(**QLIB_INIT_CONFIG)
 
     def _prepare_calender_cache(self):
-        """preload the calendar for cache"""
+        """为缓存预加载日历"""
 
-        # This code used the copy-on-write feature of Linux to avoid calculating the calendar multiple times in the subprocess
-        # This code may accelerate, but may be not useful on Windows and Mac Os
+        # 此代码利用 Linux 的写时复制功能来避免在子进程中多次计算日历
+        # 此代码可能会加速，但在 Windows 和 Mac Os 上可能无效
         Cal.calendar(freq="1min")
         get_calendar_day(freq="1min")
 
     def get_data(self):
-        """use dataset to get highreq data"""
+        """使用数据集获取高频数据"""
         self._init_qlib()
         self._prepare_calender_cache()
 
@@ -112,18 +113,18 @@ class HighfreqWorkflow:
         return
 
     def dump_and_load_dataset(self):
-        """dump and load dataset state on disk"""
+        """在磁盘上转储和加载数据集状态"""
         self._init_qlib()
         self._prepare_calender_cache()
         dataset = init_instance_by_config(self.task["dataset"])
         dataset_backtest = init_instance_by_config(self.task["dataset_backtest"])
 
-        ##=============dump dataset=============
+        ##=============转储数据集=============
         dataset.to_pickle(path="dataset.pkl")
         dataset_backtest.to_pickle(path="dataset_backtest.pkl")
 
         del dataset, dataset_backtest
-        ##=============reload dataset=============
+        ##=============重新加载数据集=============
         with open("dataset.pkl", "rb") as file_dataset:
             dataset = pickle.load(file_dataset)
 
@@ -131,7 +132,7 @@ class HighfreqWorkflow:
             dataset_backtest = pickle.load(file_dataset_backtest)
 
         self._prepare_calender_cache()
-        ##=============reinit dataset=============
+        ##=============重新初始化数据集=============
         dataset.config(
             handler_kwargs={
                 "start_time": "2021-01-19 00:00:00",
@@ -163,7 +164,7 @@ class HighfreqWorkflow:
         )
         dataset_backtest.setup_data(handler_kwargs={})
 
-        ##=============get data=============
+        ##=============获取数据=============
         xtest = dataset.prepare("test")
         backtest_test = dataset_backtest.prepare("test")
 

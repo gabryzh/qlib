@@ -5,10 +5,17 @@ from qlib.utils import init_instance_by_config
 from qlib.tests.data import GetData
 from qlib.tests.config import get_dataset_config, CSI300_MARKET, DATASET_ALPHA360_CLASS
 
+# 数据集配置
 DATASET_CONFIG = get_dataset_config(market=CSI300_MARKET, dataset_class=DATASET_ALPHA360_CLASS)
 
 
 def objective(trial):
+    """
+    Optuna 目标函数。
+
+    :param trial: Optuna trial 对象。
+    :return: 验证集上的最小损失。
+    """
     task = {
         "model": {
             "class": "LGBModel",
@@ -38,11 +45,15 @@ def objective(trial):
 
 
 if __name__ == "__main__":
+    # 初始化 Qlib
     provider_uri = "~/.qlib/qlib_data/cn_data"
     GetData().qlib_data(target_dir=provider_uri, region=REG_CN, exists_skip=True)
     qlib.init(provider_uri=provider_uri, region=REG_CN)
 
+    # 初始化数据集
     dataset = init_instance_by_config(DATASET_CONFIG)
 
+    # 创建 Optuna study
     study = optuna.Study(study_name="LGBM_360", storage="sqlite:///db.sqlite3")
+    # 运行优化
     study.optimize(objective, n_jobs=6)

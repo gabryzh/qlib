@@ -14,9 +14,9 @@
 # limitations under the License.
 
 # Lint as: python3
-"""Custom formatting functions for Alpha158 dataset.
+"""Alpha158数据集的自定义格式化函数。
 
-Defines dataset specific column definitions and data transformations.
+定义数据集特定的列定义和数据转换。
 """
 
 import data_formatters.base
@@ -29,12 +29,11 @@ InputTypes = data_formatters.base.InputTypes
 
 
 class Alpha158Formatter(GenericDataFormatter):
-    """Defines and formats data for the Alpha158 dataset.
+    """为Alpha158数据集定义和格式化数据。
 
-    Attributes:
-      column_definition: Defines input and data type of column used in the
-        experiment.
-      identifiers: Entity identifiers used in experiments.
+    属性:
+      _column_definition: 定义实验中使用的列的输入和数据类型。
+      identifiers: 实验中使用的实体标识符。
     """
 
     _column_definition = [
@@ -68,7 +67,7 @@ class Alpha158Formatter(GenericDataFormatter):
     ]
 
     def __init__(self):
-        """Initialises formatter."""
+        """初始化格式化程序。"""
 
         self.identifiers = None
         self._real_scalers = None
@@ -77,20 +76,20 @@ class Alpha158Formatter(GenericDataFormatter):
         self._num_classes_per_cat_input = None
 
     def split_data(self, df, valid_boundary=2016, test_boundary=2018):
-        """Splits data frame into training-validation-test data frames.
+        """将数据帧拆分为训练-验证-测试数据帧。
 
-        This also calibrates scaling object, and transforms data for each split.
+        这也会校准缩放对象，并为每个拆分转换数据。
 
-        Args:
-          df: Source data frame to split.
-          valid_boundary: Starting year for validation data
-          test_boundary: Starting year for test data
+        参数:
+          df: 要拆分的源数据帧。
+          valid_boundary: 验证数据的起始年份
+          test_boundary: 测试数据的起始年份
 
-        Returns:
-          Tuple of transformed (train, valid, test) data.
+        返回:
+          转换后的(训练、验证、测试)数据的元组。
         """
 
-        print("Formatting train-valid-test splits.")
+        print("正在格式化训练-验证-测试拆分。")
 
         index = df["year"]
         train = df.loc[index < valid_boundary]
@@ -102,21 +101,21 @@ class Alpha158Formatter(GenericDataFormatter):
         return (self.transform_inputs(data) for data in [train, valid, test])
 
     def set_scalers(self, df):
-        """Calibrates scalers using the data supplied.
+        """使用提供的数据校准缩放器。
 
-        Args:
-          df: Data to use to calibrate scalers.
+        参数:
+          df: 用于校准缩放器的数据。
         """
-        print("Setting scalers with training data...")
+        print("正在使用训练数据设置缩放器...")
 
         column_definitions = self.get_column_definition()
         id_column = utils.get_single_col_by_input_type(InputTypes.ID, column_definitions)
         target_column = utils.get_single_col_by_input_type(InputTypes.TARGET, column_definitions)
 
-        # Extract identifiers in case required
+        # 提取标识符以备不时之需
         self.identifiers = list(df[id_column].unique())
 
-        # Format real scalers
+        # 格式化实数缩放器
         real_inputs = utils.extract_cols_from_data_type(
             DataTypes.REAL_VALUED, column_definitions, {InputTypes.ID, InputTypes.TIME}
         )
@@ -125,9 +124,9 @@ class Alpha158Formatter(GenericDataFormatter):
         self._real_scalers = sklearn.preprocessing.StandardScaler().fit(data)
         self._target_scaler = sklearn.preprocessing.StandardScaler().fit(
             df[[target_column]].values
-        )  # used for predictions
+        )  # 用于预测
 
-        # Format categorical scalers
+        # 格式化分类缩放器
         categorical_inputs = utils.extract_cols_from_data_type(
             DataTypes.CATEGORICAL, column_definitions, {InputTypes.ID, InputTypes.TIME}
         )
@@ -135,31 +134,31 @@ class Alpha158Formatter(GenericDataFormatter):
         categorical_scalers = {}
         num_classes = []
         for col in categorical_inputs:
-            # Set all to str so that we don't have mixed integer/string columns
+            # 全部设置为 str，这样就不会有混合的整数/字符串列
             srs = df[col].apply(str)
             categorical_scalers[col] = sklearn.preprocessing.LabelEncoder().fit(srs.values)
             num_classes.append(srs.nunique())
 
-        # Set categorical scaler outputs
+        # 设置分类缩放器输出
         self._cat_scalers = categorical_scalers
         self._num_classes_per_cat_input = num_classes
 
     def transform_inputs(self, df):
-        """Performs feature transformations.
+        """执行特征转换。
 
-        This includes both feature engineering, preprocessing and normalisation.
+        这包括特征工程、预处理和归一化。
 
-        Args:
-          df: Data frame to transform.
+        参数:
+          df: 要转换的数据帧。
 
-        Returns:
-          Transformed data frame.
+        返回:
+          转换后的数据帧。
 
         """
         output = df.copy()
 
         if self._real_scalers is None and self._cat_scalers is None:
-            raise ValueError("Scalers have not been set!")
+            raise ValueError("缩放器尚未设置!")
 
         column_definitions = self.get_column_definition()
 
@@ -170,10 +169,10 @@ class Alpha158Formatter(GenericDataFormatter):
             DataTypes.CATEGORICAL, column_definitions, {InputTypes.ID, InputTypes.TIME}
         )
 
-        # Format real inputs
+        # 格式化实数输入
         output[real_inputs] = self._real_scalers.transform(df[real_inputs].values)
 
-        # Format categorical inputs
+        # 格式化分类输入
         for col in categorical_inputs:
             string_df = df[col].apply(str)
             output[col] = self._cat_scalers[col].transform(string_df)
@@ -181,13 +180,13 @@ class Alpha158Formatter(GenericDataFormatter):
         return output
 
     def format_predictions(self, predictions):
-        """Reverts any normalisation to give predictions in original scale.
+        """还原任何归一化，以原始比例给出预测。
 
-        Args:
-          predictions: Dataframe of model predictions.
+        参数:
+          predictions: 模型预测的数据帧。
 
-        Returns:
-          Data frame of unnormalised predictions.
+        返回:
+          未归一化预测的数据帧。
         """
         output = predictions.copy()
 
@@ -195,14 +194,14 @@ class Alpha158Formatter(GenericDataFormatter):
 
         for col in column_names:
             if col not in {"forecast_time", "identifier"}:
-                # Using [col] is for aligning with the format when fitting
+                # 使用 [col] 是为了与拟合时的格式保持一致
                 output[col] = self._target_scaler.inverse_transform(predictions[[col]])
 
         return output
 
-    # Default params
+    # 默认参数
     def get_fixed_params(self):
-        """Returns fixed model parameters for experiments."""
+        """返回实验的固定模型参数。"""
 
         fixed_params = {
             "total_time_steps": 6 + 6,
@@ -215,7 +214,7 @@ class Alpha158Formatter(GenericDataFormatter):
         return fixed_params
 
     def get_default_model_params(self):
-        """Returns default optimised model parameters."""
+        """返回默认的优化模型参数。"""
 
         model_params = {
             "dropout_rate": 0.4,

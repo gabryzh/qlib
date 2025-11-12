@@ -9,17 +9,17 @@ from qlib.contrib.ops.high_freq import get_calendar_day
 
 
 class DayLast(ElemOperator):
-    """DayLast Operator
+    """DayLast 算子
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     feature:
-        a series of that each value equals the last value of its day
+        一个序列，其中每个值等于其所在天的最后一个值
     """
 
     def _load_internal(self, instrument, start_index, end_index, freq):
@@ -29,17 +29,17 @@ class DayLast(ElemOperator):
 
 
 class FFillNan(ElemOperator):
-    """FFillNan Operator
+    """FFillNan 算子
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     feature:
-        a forward fill nan feature
+        一个向前填充 nan 的特征
     """
 
     def _load_internal(self, instrument, start_index, end_index, freq):
@@ -48,17 +48,17 @@ class FFillNan(ElemOperator):
 
 
 class BFillNan(ElemOperator):
-    """BFillNan Operator
+    """BFillNan 算子
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     feature:
-        a backfoward fill nan feature
+        一个向后填充 nan 的特征
     """
 
     def _load_internal(self, instrument, start_index, end_index, freq):
@@ -67,17 +67,17 @@ class BFillNan(ElemOperator):
 
 
 class Date(ElemOperator):
-    """Date Operator
+    """Date 算子
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     feature:
-        a series of that each value is the date corresponding to feature.index
+        一个序列，其中每个值是对应于 feature.index 的日期
     """
 
     def _load_internal(self, instrument, start_index, end_index, freq):
@@ -87,19 +87,19 @@ class Date(ElemOperator):
 
 
 class Select(PairOperator):
-    """Select Operator
+    """Select 算子
 
-    Parameters
+    参数
     ----------
     feature_left : Expression
-        feature instance, select condition
+        特征实例，选择条件
     feature_right : Expression
-        feature instance, select value
+        特征实例，选择值
 
-    Returns
+    返回
     ----------
     feature:
-        value(feature_right) that meets the condition(feature_left)
+        满足条件(feature_left)的值(feature_right)
 
     """
 
@@ -110,17 +110,17 @@ class Select(PairOperator):
 
 
 class IsNull(ElemOperator):
-    """IsNull Operator
+    """IsNull 算子
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
 
-    Returns
+    返回
     ----------
     feature:
-        A series indicating whether the feature is nan
+        一个指示特征是否为 nan 的序列
     """
 
     def _load_internal(self, instrument, start_index, end_index, freq):
@@ -129,28 +129,28 @@ class IsNull(ElemOperator):
 
 
 class Cut(ElemOperator):
-    """Cut Operator
+    """Cut 算子
 
-    Parameters
+    参数
     ----------
     feature : Expression
-        feature instance
+        特征实例
     l : int
-        l > 0, delete the first l elements of feature (default is None, which means 0)
+        l > 0, 删除特征的前 l 个元素 (默认为 None, 表示 0)
     r : int
-        r < 0, delete the last -r elements of feature (default is None, which means 0)
-    Returns
+        r < 0, 删除特征的后 -r 个元素 (默认为 None, 表示 0)
+    返回
     ----------
     feature:
-        A series with the first l and last -r elements deleted from the feature.
-        Note: It is deleted from the raw data, not the sliced data
+        一个从特征中删除了前 l 个和后 -r 个元素的序列。
+        注意：它是从原始数据中删除，而不是从切片数据中删除
     """
 
     def __init__(self, feature, l=None, r=None):
         self.l = l
         self.r = r
         if (self.l is not None and self.l <= 0) or (self.r is not None and self.r >= 0):
-            raise ValueError("Cut operator l should > 0 and r should < 0")
+            raise ValueError("Cut 算子的 l 应 > 0 且 r 应 < 0")
 
         super(Cut, self).__init__(feature)
 
@@ -159,6 +159,9 @@ class Cut(ElemOperator):
         return series.iloc[self.l : self.r]
 
     def get_extended_window_size(self):
+        """
+        获取扩展窗口大小。
+        """
         ll = 0 if self.l is None else self.l
         rr = 0 if self.r is None else abs(self.r)
         lft_etd, rght_etd = self.feature.get_extended_window_size()

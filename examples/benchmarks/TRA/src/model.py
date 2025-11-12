@@ -24,6 +24,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class TRAModel(Model):
+    """TRA 模型"""
+
     def __init__(
         self,
         model_config,
@@ -49,7 +51,7 @@ class TRAModel(Model):
         torch.manual_seed(seed)
 
         self.logger = get_module_logger("TRA")
-        self.logger.info("TRA Model...")
+        self.logger.info("TRA 模型...")
 
         self.model = eval(model_type)(**model_config).to(device)
         if model_init_state:
@@ -58,10 +60,10 @@ class TRAModel(Model):
             for param in self.model.parameters():
                 param.requires_grad_(False)
         else:
-            self.logger.info("# model params: %d" % sum([p.numel() for p in self.model.parameters()]))
+            self.logger.info("# 模型参数: %d" % sum([p.numel() for p in self.model.parameters()]))
 
         self.tra = TRA(self.model.output_size, **tra_config).to(device)
-        self.logger.info("# tra params: %d" % sum([p.numel() for p in self.tra.parameters()]))
+        self.logger.info("# tra 参数: %d" % sum([p.numel() for p in self.tra.parameters()]))
 
         self.optimizer = optim.Adam(list(self.model.parameters()) + list(self.tra.parameters()), lr=lr)
 
@@ -81,17 +83,23 @@ class TRAModel(Model):
         self.avg_params = avg_params
 
         if self.tra.num_states > 1 and not self.eval_train:
-            self.logger.warn("`eval_train` will be ignored when using TRA")
+            self.logger.warn("使用 TRA 时将忽略 `eval_train`")
 
         if self.logdir is not None:
             if os.path.exists(self.logdir):
-                self.logger.warn(f"logdir {self.logdir} is not empty")
+                self.logger.warn(f"logdir {self.logdir} 不为空")
             os.makedirs(self.logdir, exist_ok=True)
 
         self.fitted = False
         self.global_step = -1
 
     def train_epoch(self, data_set):
+        """
+        训练一个 epoch。
+
+        :param data_set: 数据集。
+        :return: 平均损失。
+        """
         self.model.train()
         self.tra.train()
 
@@ -122,12 +130,12 @@ class TRAModel(Model):
             loss = (pred - label).pow(2).mean()
 
             L = (all_preds.detach() - label[:, None]).pow(2)
-            L -= L.min(dim=-1, keepdim=True).values  # normalize & ensure positive input
+            L -= L.min(dim=-1, keepdim=True).values  # 归一化并确保正输入
 
-            data_set.assign_data(index, L)  # save loss to memory
+            data_set.assign_data(index, L)  # 将损失保存到内存
 
             if prob is not None:
-                P = sinkhorn(-L, epsilon=0.01)  # sample assignment matrix
+                P = sinkhorn(-L, epsilon=0.01)  # 样本分配矩阵
                 lamb = self.lamb * (self.rho**self.global_step)
                 reg = prob.log().mul(P).sum(dim=-1).mean()
                 loss = loss - lamb * reg
@@ -144,6 +152,13 @@ class TRAModel(Model):
         return total_loss
 
     def test_epoch(self, data_set, return_pred=False):
+        """
+        测试一个 epoch。
+
+        :param data_set: 数据集。
+        :param return_pred: 是否返回预测结果。
+        :return: 指标和预测结果。
+        """
         self.model.eval()
         self.tra.eval()
         data_set.eval()
@@ -162,9 +177,9 @@ class TRAModel(Model):
 
             L = (all_preds - label[:, None]).pow(2)
 
-            L -= L.min(dim=-1, keepdim=True).values  # normalize & ensure positive input
+            L -= L.min(dim=-1, keepdim=True).values  # 归一化并确保正输入
 
-            data_set.assign_data(index, L)  # save loss to memory
+            data_set.assign_data(index, L)  # 将损失保存到内存
 
             X = np.c_[
                 pred.cpu().numpy(),
@@ -201,6 +216,12 @@ class TRAModel(Model):
         return metrics, preds
 
     def fit(self, dataset, evals_result=dict()):
+        """
+        拟合模型。
+
+        :param dataset: 数据集。
+        :param evals_result: 评估结果。
+        """
         train_set, valid_set, test_set = dataset.prepare(["train", "valid", "test"])
 
         best_score = -1
@@ -218,42 +239,42 @@ class TRAModel(Model):
         evals_result["valid"] = []
         evals_result["test"] = []
 
-        # train
+        # 训练
         self.fitted = True
         self.global_step = -1
 
         if self.tra.num_states > 1:
-            self.logger.info("init memory...")
+            self.logger.info("初始化内存...")
             self.test_epoch(train_set)
 
         for epoch in range(self.n_epochs):
             self.logger.info("Epoch %d:", epoch)
 
-            self.logger.info("training...")
+            self.logger.info("正在训练...")
             self.train_epoch(train_set)
 
-            self.logger.info("evaluating...")
-            # average params for inference
+            self.logger.info("正在评估...")
+            # 推理的平均参数
             params_list["model"].append(copy.deepcopy(self.model.state_dict()))
             params_list["tra"].append(copy.deepcopy(self.tra.state_dict()))
             self.model.load_state_dict(average_params(params_list["model"]))
             self.tra.load_state_dict(average_params(params_list["tra"]))
 
-            # NOTE: during evaluating, the whole memory will be refreshed
+            # 注意：在评估期间，将刷新整个内存
             if self.tra.num_states > 1 or self.eval_train:
-                train_set.clear_memory()  # NOTE: clear the shared memory
+                train_set.clear_memory()  # 注意：清除共享内存
                 train_metrics = self.test_epoch(train_set)[0]
                 evals_result["train"].append(train_metrics)
-                self.logger.info("\ttrain metrics: %s" % train_metrics)
+                self.logger.info("\t训练指标: %s" % train_metrics)
 
             valid_metrics = self.test_epoch(valid_set)[0]
             evals_result["valid"].append(valid_metrics)
-            self.logger.info("\tvalid metrics: %s" % valid_metrics)
+            self.logger.info("\t验证指标: %s" % valid_metrics)
 
             if self.eval_test:
                 test_metrics = self.test_epoch(test_set)[0]
                 evals_result["test"].append(test_metrics)
-                self.logger.info("\ttest metrics: %s" % test_metrics)
+                self.logger.info("\t测试指标: %s" % test_metrics)
 
             if valid_metrics["IC"] > best_score:
                 best_score = valid_metrics["IC"]
@@ -266,22 +287,22 @@ class TRAModel(Model):
             else:
                 stop_rounds += 1
                 if stop_rounds >= self.early_stop:
-                    self.logger.info("early stop @ %s" % epoch)
+                    self.logger.info("在 %s 早停" % epoch)
                     break
 
-            # restore parameters
+            # 恢复参数
             self.model.load_state_dict(params_list["model"][-1])
             self.tra.load_state_dict(params_list["tra"][-1])
 
-        self.logger.info("best score: %.6lf @ %d" % (best_score, best_epoch))
+        self.logger.info("最佳分数: %.6lf @ %d" % (best_score, best_epoch))
         self.model.load_state_dict(best_params["model"])
         self.tra.load_state_dict(best_params["tra"])
 
         metrics, preds = self.test_epoch(test_set, return_pred=True)
-        self.logger.info("test metrics: %s" % metrics)
+        self.logger.info("测试指标: %s" % metrics)
 
         if self.logdir:
-            self.logger.info("save model & pred to local directory")
+            self.logger.info("将模型和预测保存到本地目录")
 
             pd.concat({name: pd.DataFrame(evals_result[name]) for name in evals_result}, axis=1).to_csv(
                 self.logdir + "/logs.csv", index=False
@@ -305,36 +326,43 @@ class TRAModel(Model):
                     "seed": self.seed,
                     "logdir": self.logdir,
                 },
-                "best_eval_metric": -best_score,  # NOTE: minux -1 for minimize
+                "best_eval_metric": -best_score,  # 注意：最小化为 -1
                 "metric": metrics,
             }
             with open(self.logdir + "/info.json", "w") as f:
                 json.dump(info, f)
 
     def predict(self, dataset, segment="test"):
+        """
+        预测。
+
+        :param dataset: 数据集。
+        :param segment: 要预测的数据段。
+        :return: 预测结果。
+        """
         if not self.fitted:
-            raise ValueError("model is not fitted yet!")
+            raise ValueError("模型尚未拟合！")
 
         test_set = dataset.prepare(segment)
 
         metrics, preds = self.test_epoch(test_set, return_pred=True)
-        self.logger.info("test metrics: %s" % metrics)
+        self.logger.info("测试指标: %s" % metrics)
 
         return preds
 
 
 class LSTM(nn.Module):
-    """LSTM Model
+    """LSTM 模型
 
-    Args:
-        input_size (int): input size (# features)
-        hidden_size (int): hidden size
-        num_layers (int): number of hidden layers
-        use_attn (bool): whether use attention layer.
-            we use concat attention as https://github.com/fulifeng/Adv-ALSTM/
-        dropout (float): dropout rate
-        input_drop (float): input dropout for data augmentation
-        noise_level (float): add gaussian noise to input for data augmentation
+    参数:
+        input_size (int): 输入大小（特征数）
+        hidden_size (int): 隐藏大小
+        num_layers (int): 隐藏层数
+        use_attn (bool): 是否使用注意力层。
+            我们使用 concat attention，如 https://github.com/fulifeng/Adv-ALSTM/
+        dropout (float): dropout 率
+        input_drop (float): 用于数据增强的输入 dropout
+        noise_level (float): 为数据增强向输入添加高斯噪声
     """
 
     def __init__(
@@ -375,6 +403,12 @@ class LSTM(nn.Module):
             self.output_size = hidden_size
 
     def forward(self, x):
+        """
+        前向传播。
+
+        :param x: 输入张量。
+        :return: 输出张量。
+        """
         x = self.input_drop(x)
 
         if self.training and self.noise_level > 0:
@@ -394,7 +428,7 @@ class LSTM(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    # reference: https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    # 参考：https://pytorch.org/tutorials/beginner/transformer_tutorial.html
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -408,21 +442,27 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x):
+        """
+        前向传播。
+
+        :param x: 输入张量。
+        :return: 输出张量。
+        """
         x = x + self.pe[: x.size(0), :]
         return self.dropout(x)
 
 
 class Transformer(nn.Module):
-    """Transformer Model
+    """Transformer 模型
 
-    Args:
-        input_size (int): input size (# features)
-        hidden_size (int): hidden size
-        num_layers (int): number of transformer layers
-        num_heads (int): number of heads in transformer
-        dropout (float): dropout rate
-        input_drop (float): input dropout for data augmentation
-        noise_level (float): add gaussian noise to input for data augmentation
+    参数:
+        input_size (int): 输入大小（特征数）
+        hidden_size (int): 隐藏大小
+        num_layers (int): transformer 层数
+        num_heads (int): transformer 中的头数
+        dropout (float): dropout 率
+        input_drop (float): 用于数据增强的输入 dropout
+        noise_level (float): 为数据增强向输入添加高斯噪声
     """
 
     def __init__(
@@ -457,13 +497,19 @@ class Transformer(nn.Module):
         self.output_size = hidden_size
 
     def forward(self, x):
+        """
+        前向传播。
+
+        :param x: 输入张量。
+        :return: 输出张量。
+        """
         x = self.input_drop(x)
 
         if self.training and self.noise_level > 0:
             noise = torch.randn_like(x).to(x)
             x = x + noise * self.noise_level
 
-        x = x.permute(1, 0, 2).contiguous()  # the first dim need to be sequence
+        x = x.permute(1, 0, 2).contiguous()  # 第一个维度需要是序列
         x = self.pe(x)
 
         x = self.input_proj(x)
@@ -473,17 +519,17 @@ class Transformer(nn.Module):
 
 
 class TRA(nn.Module):
-    """Temporal Routing Adaptor (TRA)
+    """时序路由适配器 (TRA)
 
-    TRA takes historical prediction errors & latent representation as inputs,
-    then routes the input sample to a specific predictor for training & inference.
+    TRA 将历史预测误差和潜在表示作为输入，
+    然后将输入样本路由到特定的预测器进行训练和推理。
 
-    Args:
-        input_size (int): input size (RNN/Transformer's hidden size)
-        num_states (int): number of latent states (i.e., trading patterns)
-            If `num_states=1`, then TRA falls back to traditional methods
-        hidden_size (int): hidden size of the router
-        tau (float): gumbel softmax temperature
+    参数:
+        input_size (int): 输入大小 (RNN/Transformer 的隐藏大小)
+        num_states (int): 潜在状态数（即交易模式）
+            如果 `num_states=1`，则 TRA 回退到传统方法
+        hidden_size (int): 路由器的隐藏大小
+        tau (float): gumbel softmax 温度
     """
 
     def __init__(self, input_size, num_states=1, hidden_size=8, tau=1.0, src_info="LR_TPE"):
@@ -505,12 +551,19 @@ class TRA(nn.Module):
         self.predictors = nn.Linear(input_size, num_states)
 
     def forward(self, hidden, hist_loss):
+        """
+        前向传播。
+
+        :param hidden: 隐藏状态。
+        :param hist_loss: 历史损失。
+        :return: 最终预测、所有预测和概率。
+        """
         preds = self.predictors(hidden)
 
         if self.num_states == 1:
             return preds.squeeze(-1), preds, None
 
-        # information type
+        # 信息类型
         router_out, _ = self.router(hist_loss)
         if "LR" in self.src_info:
             latent_representation = hidden
@@ -533,7 +586,13 @@ class TRA(nn.Module):
 
 
 def evaluate(pred):
-    pred = pred.rank(pct=True)  # transform into percentiles
+    """
+    评估预测结果。
+
+    :param pred: 预测结果。
+    :return: 评估指标。
+    """
+    pred = pred.rank(pct=True)  # 转换为百分位数
     score = pred.score
     label = pred.label
     diff = score - label
@@ -544,6 +603,12 @@ def evaluate(pred):
 
 
 def average_params(params_list):
+    """
+    平均参数。
+
+    :param params_list: 参数列表。
+    :return: 平均后的参数。
+    """
     assert isinstance(params_list, (tuple, list, collections.deque))
     n = len(params_list)
     if n == 1:
@@ -555,7 +620,7 @@ def average_params(params_list):
             keys = params.keys()
         for k, v in params.items():
             if k not in keys:
-                raise ValueError("the %d-th model has different params" % i)
+                raise ValueError("第 %d 个模型有不同的参数" % i)
             if k not in new_params:
                 new_params[k] = v / n
             else:
@@ -564,7 +629,7 @@ def average_params(params_list):
 
 
 def shoot_infs(inp_tensor):
-    """Replaces inf by maximum of tensor"""
+    """用张量的最大值替换 inf"""
     mask_inf = torch.isinf(inp_tensor)
     ind_inf = torch.nonzero(mask_inf, as_tuple=False)
     if len(ind_inf) > 0:
@@ -583,7 +648,7 @@ def shoot_infs(inp_tensor):
 
 
 def sinkhorn(Q, n_iters=3, epsilon=0.01):
-    # epsilon should be adjusted according to logits value's scale
+    # epsilon 应根据 logits 值的范围进行调整
     with torch.no_grad():
         Q = shoot_infs(Q)
         Q = torch.exp(Q / epsilon)

@@ -1,8 +1,7 @@
 #  Copyright (c) Microsoft Corporation.
 #  Licensed under the MIT License.
 """
-The expect result of `backtest` is following in current version
-
+当前版本中 `backtest` 的预期结果如下
 'The following are analysis results of benchmark return(1day).'
                        risk
 mean               0.000651
@@ -24,8 +23,8 @@ std                0.007575
 annualized_return  0.264280
 information_ratio  2.261392
 max_drawdown      -0.071842
-[1706497:MainThread](2021-12-07 14:08:30,263) INFO - qlib.workflow - [record_temp.py:441] - Portfolio analysis record 'port_analysis_30minute.
-pkl' has been saved as the artifact of the Experiment 2
+[1706497:MainThread](2021-12-07 14:08:30,263) INFO - qlib.workflow - [record_temp.py:441] - 投资组合分析记录 'port_analysis_30minute.
+pkl' 已作为实验 2 的工件保存
 'The following are analysis results of benchmark return(30minute).'
                        risk
 mean               0.000078
@@ -48,8 +47,8 @@ std                0.003343
 annualized_return  0.294536
 information_ratio  2.018860
 max_drawdown      -0.075579
-[1706497:MainThread](2021-12-07 14:08:30,277) INFO - qlib.workflow - [record_temp.py:441] - Portfolio analysis record 'port_analysis_5minute.p
-kl' has been saved as the artifact of the Experiment 2
+[1706497:MainThread](2021-12-07 14:08:30,277) INFO - qlib.workflow - [record_temp.py:441] - 投资组合分析记录 'port_analysis_5minute.p
+kl' 已作为实验 2 的工件保存
 'The following are analysis results of benchmark return(5minute).'
                        risk
 mean               0.000015
@@ -71,31 +70,29 @@ std                0.001412
 annualized_return  0.281536
 information_ratio  1.866091
 max_drawdown      -0.078194
-[1706497:MainThread](2021-12-07 14:08:30,287) INFO - qlib.workflow - [record_temp.py:466] - Indicator analysis record 'indicator_analysis_1day
-.pkl' has been saved as the artifact of the Experiment 2
+[1706497:MainThread](2021-12-07 14:08:30,287) INFO - qlib.workflow - [record_temp.py:466] - 指标分析记录 'indicator_analysis_1day
+.pkl' 已作为实验 2 的工件保存
 'The following are analysis results of indicators(1day).'
         value
 ffr  0.945821
 pa   0.000324
 pos  0.542882
-[1706497:MainThread](2021-12-07 14:08:30,293) INFO - qlib.workflow - [record_temp.py:466] - Indicator analysis record 'indicator_analysis_30mi
-nute.pkl' has been saved as the artifact of the Experiment 2
+[1706497:MainThread](2021-12-07 14:08:30,293) INFO - qlib.workflow - [record_temp.py:466] - 指标分析记录 'indicator_analysis_30mi
+nute.pkl' 已作为实验 2 的工件保存
 'The following are analysis results of indicators(30minute).'
         value
 ffr  0.982910
 pa   0.000037
 pos  0.500806
-[1706497:MainThread](2021-12-07 14:08:30,302) INFO - qlib.workflow - [record_temp.py:466] - Indicator analysis record 'indicator_analysis_5min
-ute.pkl' has been saved as the artifact of the Experiment 2
+[1706497:MainThread](2021-12-07 14:08:30,302) INFO - qlib.workflow - [record_temp.py:466] - 指标分析记录 'indicator_analysis_5min
+ute.pkl' 已作为实验 2 的工件保存
 'The following are analysis results of indicators(5minute).'
         value
 ffr  0.991017
 pa   0.000000
 pos  0.000000
-[1706497:MainThread](2021-12-07 14:08:30,627) INFO - qlib.timer - [log.py:113] - Time cost: 0.014s | waiting `async_log` Done
+[1706497:MainThread](2021-12-07 14:08:30,627) INFO - qlib.timer - [log.py:113] - 时间成本: 0.014s | 等待 `async_log` 完成
 """
-
-
 from copy import deepcopy
 import qlib
 import fire
@@ -111,6 +108,7 @@ from qlib.backtest import collect_data
 
 
 class NestedDecisionExecutionWorkflow:
+    """嵌套决策执行工作流"""
     market = "csi300"
     benchmark = "SH000300"
     data_handler_config = {
@@ -221,8 +219,8 @@ class NestedDecisionExecutionWorkflow:
     }
 
     def _init_qlib(self):
-        """initialize qlib"""
-        provider_uri_day = "~/.qlib/qlib_data/cn_data"  # target_dir
+        """初始化 qlib"""
+        provider_uri_day = "~/.qlib/qlib_data/cn_data"  # 目标目录
         GetData().qlib_data(target_dir=provider_uri_day, region=REG_CN, version="v2", exists_skip=True)
         provider_uri_1min = HIGH_FREQ_CONFIG.get("provider_uri")
         GetData().qlib_data(
@@ -232,17 +230,19 @@ class NestedDecisionExecutionWorkflow:
         qlib.init(provider_uri=provider_uri_map, dataset_cache=None, expression_cache=None)
 
     def _train_model(self, model, dataset):
+        """训练模型"""
         with R.start(experiment_name=self.exp_name):
             R.log_params(**flatten_dict(self.task))
             model.fit(dataset)
             R.save_objects(**{"params.pkl": model})
 
-            # prediction
+            # 预测
             recorder = R.get_recorder()
             sr = SignalRecord(model, dataset, recorder)
             sr.generate()
 
     def backtest(self):
+        """回测"""
         self._init_qlib()
         model = init_instance_by_config(self.task["model"])
         dataset = init_instance_by_config(self.task["dataset"])
@@ -268,12 +268,8 @@ class NestedDecisionExecutionWorkflow:
             )
             par.generate()
 
-        # user could use following methods to analysis the position
-        # report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")
-        # from qlib.contrib.report import analysis_position
-        # analysis_position.report_graph(report_normal_df)
-
     def collect_data(self):
+        """收集数据"""
         self._init_qlib()
         model = init_instance_by_config(self.task["model"])
         dataset = init_instance_by_config(self.task["dataset"])
@@ -294,19 +290,11 @@ class NestedDecisionExecutionWorkflow:
         for trade_decision in data_generator:
             print(trade_decision)
 
-    # the code below are for checking, users don't have to care about it
-    # The tests can be categorized into 2 types
-    # 1) comparing same backtest
-    # - Basic test idea: the shared accumulated value are equal in multiple levels
-    #   - Aligning the profit calculation between multiple levels and single levels.
-    # 2) comparing different backtest
-    # - Basic test idea:
-    #   - the daily backtest will be similar as multi-level(the data quality makes this gap smaller)
-
     def check_diff_freq(self):
+        """检查不同频率"""
         self._init_qlib()
         exp = R.get_exp(experiment_name="backtest")
-        rec = next(iter(exp.list_recorders().values()))  # assuming this will get the latest recorder
+        rec = next(iter(exp.list_recorders().values()))  # 假设这将获取最新的记录器
         for check_key in "account", "total_turnover", "total_cost":
             check_key = "total_cost"
 
@@ -319,44 +307,9 @@ class NestedDecisionExecutionWorkflow:
 
     def backtest_only_daily(self):
         """
-        This backtest is used for comparing the nested execution and single layer execution
-        Due to the low quality daily-level and miniute-level data, they are hardly comparable.
-        So it is used for detecting serious bugs which make the results different greatly.
-
-        .. code-block:: shell
-
-            [1724971:MainThread](2021-12-07 16:24:31,156) INFO - qlib.workflow - [record_temp.py:441] - Portfolio analysis record 'port_analysis_1day.pkl'
-            has been saved as the artifact of the Experiment 2
-            'The following are analysis results of benchmark return(1day).'
-                                   risk
-            mean               0.000651
-            std                0.012472
-            annualized_return  0.154967
-            information_ratio  0.805422
-            max_drawdown      -0.160445
-            'The following are analysis results of the excess return without cost(1day).'
-                                   risk
-            mean               0.001375
-            std                0.006103
-            annualized_return  0.327204
-            information_ratio  3.475016
-            max_drawdown      -0.024927
-            'The following are analysis results of the excess return with cost(1day).'
-                                   risk
-            mean               0.001184
-            std                0.006091
-            annualized_return  0.281801
-            information_ratio  2.998749
-            max_drawdown      -0.029568
-            [1724971:MainThread](2021-12-07 16:24:31,170) INFO - qlib.workflow - [record_temp.py:466] - Indicator analysis record 'indicator_analysis_1day.
-            pkl' has been saved as the artifact of the Experiment 2
-            'The following are analysis results of indicators(1day).'
-                 value
-            ffr    1.0
-            pa     0.0
-            pos    0.0
-            [1724971:MainThread](2021-12-07 16:24:31,188) INFO - qlib.timer - [log.py:113] - Time cost: 0.007s | waiting `async_log` Done
-
+        此回测用于比较嵌套执行和单层执行
+        由于日级和分钟级数据质量较低，它们很难比较。
+        因此，它用于检测导致结果差异很大的严重错误。
         """
         self._init_qlib()
         model = init_instance_by_config(self.task["model"])

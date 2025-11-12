@@ -14,27 +14,24 @@
 # limitations under the License.
 
 # Lint as: python3
-"""Default data formatting functions for experiments.
+"""实验的默认数据格式化函数。
 
-For new datasets, inherit form GenericDataFormatter and implement
-all abstract functions.
+对于新的数据集，继承自 GenericDataFormatter 并实现所有抽象函数。
 
-These dataset-specific methods:
-1) Define the column and input types for tabular dataframes used by model
-2) Perform the necessary input feature engineering & normalisation steps
-3) Reverts the normalisation for predictions
-4) Are responsible for train, validation and test splits
-
+这些特定于数据集的方法:
+1) 定义模型使用的表格数据帧的列和输入类型
+2) 执行必要的输入特征工程和归一化步骤
+3) 还原预测的归一化
+4) 负责训练、验证和测试的拆分
 
 """
-
 import abc
 import enum
 
 
-# Type definitions
+# 类型定义
 class DataTypes(enum.IntEnum):
-    """Defines numerical types of each column."""
+    """定义每列的数值类型。"""
 
     REAL_VALUED = 0
     CATEGORICAL = 1
@@ -42,64 +39,62 @@ class DataTypes(enum.IntEnum):
 
 
 class InputTypes(enum.IntEnum):
-    """Defines input types of each column."""
+    """定义每列的输入类型。"""
 
     TARGET = 0
     OBSERVED_INPUT = 1
     KNOWN_INPUT = 2
     STATIC_INPUT = 3
-    ID = 4  # Single column used as an entity identifier
-    TIME = 5  # Single column exclusively used as a time index
+    ID = 4  # 用作实体标识符的单列
+    TIME = 5  # 专门用作时间索引的单列
 
 
 class GenericDataFormatter(abc.ABC):
-    """Abstract base class for all data formatters.
+    """所有数据格式化程序的抽象基类。
 
-    User can implement the abstract methods below to perform dataset-specific
-    manipulations.
+    用户可以实现下面的抽象方法来执行特定于数据集的操作。
 
     """
 
     @abc.abstractmethod
     def set_scalers(self, df):
-        """Calibrates scalers using the data supplied."""
+        """使用提供的数据校准缩放器。"""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def transform_inputs(self, df):
-        """Performs feature transformation."""
+        """执行特征转换。"""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def format_predictions(self, df):
-        """Reverts any normalisation to give predictions in original scale."""
+        """还原任何归一化，以原始比例给出预测。"""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def split_data(self, df):
-        """Performs the default train, validation and test splits."""
+        """执行默认的训练、验证和测试拆分。"""
         raise NotImplementedError()
 
     @property
     @abc.abstractmethod
     def _column_definition(self):
-        """Defines order, input type and data type of each column."""
+        """定义每列的顺序、输入类型和数据类型。"""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def get_fixed_params(self):
-        """Defines the fixed parameters used by the model for training.
+        """定义模型用于训练的固定参数。
 
-        Requires the following keys:
-          'total_time_steps': Defines the total number of time steps used by TFT
-          'num_encoder_steps': Determines length of LSTM encoder (i.e. history)
-          'num_epochs': Maximum number of epochs for training
-          'early_stopping_patience': Early stopping param for keras
-          'multiprocessing_workers': # of cpus for data processing
+        需要以下键:
+          'total_time_steps': 定义 TFT 使用的总时间步数
+          'num_encoder_steps': 决定 LSTM 编码器的长度（即历史记录）
+          'num_epochs': 训练的最大轮数
+          'early_stopping_patience': keras 的早停参数
+          'multiprocessing_workers': 用于数据处理的 cpu 数量
 
-
-        Returns:
-          A dictionary of fixed parameters, e.g.:
+        返回:
+          一个固定参数的字典，例如:
 
           fixed_params = {
               'total_time_steps': 252 + 5,
@@ -111,38 +106,37 @@ class GenericDataFormatter(abc.ABC):
         """
         raise NotImplementedError
 
-    # Shared functions across data-formatters
+    # 跨数据格式化程序的共享函数
     @property
     def num_classes_per_cat_input(self):
-        """Returns number of categories per relevant input.
+        """返回每个相关输入的类别数。
 
-        This is seqeuently required for keras embedding layers.
+        这对于 keras 嵌入层是顺序必需的。
         """
         return self._num_classes_per_cat_input
 
     def get_num_samples_for_calibration(self):
-        """Gets the default number of training and validation samples.
+        """获取默认的训练和验证样本数。
 
-        Use to sub-sample the data for network calibration and a value of -1 uses
-        all available samples.
+        用于对数据进行子采样以进行网络校准，值为 -1 表示使用所有可用样本。
 
-        Returns:
-          Tuple of (training samples, validation samples)
+        返回:
+          (训练样本, 验证样本) 的元组
         """
         return -1, -1
 
     def get_column_definition(self):
-        """Returns formatted column definition in order expected by the TFT."""
+        """按 TFT 预期的顺序列出格式化的列定义。"""
 
         column_definition = self._column_definition
 
-        # Sanity checks first.
-        # Ensure only one ID and time column exist
+        # 首先进行健全性检查。
+        # 确保只存在一个 ID 和时间列
         def _check_single_column(input_type):
             length = len([tup for tup in column_definition if tup[2] == input_type])
 
             if length != 1:
-                raise ValueError("Illegal number of inputs ({}) of type {}".format(length, input_type))
+                raise ValueError("类型 {} 的输入数量 ({}) 非法".format(input_type, length))
 
         _check_single_column(InputTypes.ID)
         _check_single_column(InputTypes.TIME)
@@ -163,20 +157,20 @@ class GenericDataFormatter(abc.ABC):
         return identifier + time + real_inputs + categorical_inputs
 
     def _get_input_columns(self):
-        """Returns names of all input columns."""
+        """返回所有输入列的名称。"""
         return [tup[0] for tup in self.get_column_definition() if tup[2] not in {InputTypes.ID, InputTypes.TIME}]
 
     def _get_tft_input_indices(self):
-        """Returns the relevant indexes and input sizes required by TFT."""
+        """返回 TFT 所需的相关索引和输入大小。"""
 
-        # Functions
+        # 函数
         def _extract_tuples_from_data_type(data_type, defn):
             return [tup for tup in defn if tup[1] == data_type and tup[2] not in {InputTypes.ID, InputTypes.TIME}]
 
         def _get_locations(input_types, defn):
             return [i for i, tup in enumerate(defn) if tup[2] in input_types]
 
-        # Start extraction
+        # 开始提取
         column_definition = [
             tup for tup in self.get_column_definition() if tup[2] not in {InputTypes.ID, InputTypes.TIME}
         ]
@@ -199,7 +193,7 @@ class GenericDataFormatter(abc.ABC):
         return locations
 
     def get_experiment_params(self):
-        """Returns fixed model parameters for experiments."""
+        """返回实验的固定模型参数。"""
 
         required_keys = [
             "total_time_steps",
@@ -213,7 +207,7 @@ class GenericDataFormatter(abc.ABC):
 
         for k in required_keys:
             if k not in fixed_params:
-                raise ValueError("Field {}".format(k) + " missing from fixed parameter definitions!")
+                raise ValueError("字段 {}".format(k) + " 在固定参数定义中缺失!")
 
         fixed_params["column_definition"] = self.get_column_definition()
 
