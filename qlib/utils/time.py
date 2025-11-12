@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 """
-Time related utils are compiled in this script
+此脚本中编译了与时间相关的实用程序
 """
 import bisect
 from datetime import datetime, time, date, timedelta
@@ -31,19 +31,20 @@ TW_TIME = [
 @functools.lru_cache(maxsize=240)
 def get_min_cal(shift: int = 0, region: str = REG_CN) -> List[time]:
     """
-    get the minute level calendar in day period
+    获取一天中的分钟级别日历
 
-    Parameters
+    参数
     ----------
     shift : int
-        the shift direction would be like pandas shift.
-        series.shift(1) will replace the value at `i`-th with the one at `i-1`-th
+        偏移方向类似于pandas的shift。
+        series.shift(1)会将第i个位置的值替换为第i-1个位置的值
     region: str
-        Region, for example, "cn", "us"
+        区域，例如 "cn", "us"
 
-    Returns
+    返回
     -------
     List[time]:
+        分钟级别日历
 
     """
     cal = []
@@ -71,21 +72,22 @@ def get_min_cal(shift: int = 0, region: str = REG_CN) -> List[time]:
 
 
 def is_single_value(start_time, end_time, freq, region: str = REG_CN):
-    """Is there only one piece of data for stock market.
+    """股市是否只有一条数据。
 
-    Parameters
+    参数
     ----------
     start_time : Union[pd.Timestamp, str]
-        closed start time for data.
+        数据的平仓开始时间。
     end_time : Union[pd.Timestamp, str]
-        closed end time for data.
+        数据的平仓结束时间。
     freq :
+        频率。
     region: str
-        Region, for example, "cn", "us"
-    Returns
+        区域，例如 "cn", "us"。
+    返回
     -------
     bool
-        True means one piece of data to obtain.
+        True 表示获取一条数据。
     """
     if region == REG_CN:
         if end_time - start_time < freq:
@@ -116,7 +118,7 @@ class Freq:
     NORM_FREQ_WEEK = "week"
     NORM_FREQ_DAY = "day"
     NORM_FREQ_MINUTE = "min"  # using min instead of minute for align with Qlib's data filename
-    SUPPORT_CAL_LIST = [NORM_FREQ_MINUTE, NORM_FREQ_DAY]  # FIXME: this list should from data
+    SUPPORT_CAL_LIST = [NORM_FREQ_MINUTE, NORM_FREQ_DAY]  # FIXME: 此列表应来自数据
 
     def __init__(self, freq: Union[str, "Freq"]) -> None:
         if isinstance(freq, str):
@@ -124,7 +126,7 @@ class Freq:
         elif isinstance(freq, Freq):
             self.count, self.base = freq.count, freq.base
         else:
-            raise NotImplementedError(f"This type of input is not supported")
+            raise NotImplementedError(f"不支持此类型的输入")
 
     def __eq__(self, freq):
         freq = Freq(freq)
@@ -140,18 +142,18 @@ class Freq:
     @staticmethod
     def parse(freq: str) -> Tuple[int, str]:
         """
-        Parse freq into a unified format
+        将频率解析为统一格式
 
-        Parameters
+        参数
         ----------
         freq : str
-            Raw freq, supported freq should match the re '^([0-9]*)(month|mon|week|w|day|d|minute|min)$'
+            原始频率，支持的频率应匹配正则表达式'^([0-9]*)(month|mon|week|w|day|d|minute|min)$'
 
-        Returns
+        返回
         -------
         freq: Tuple[int, str]
-            Unified freq, including freq count and unified freq unit. The freq unit should be '[month|week|day|minute]'.
-                Example:
+            统一的频率，包括频率计数和统一的频率单位。频率单位应为'[month|week|day|minute]'。
+                示例:
 
                 .. code-block::
 
@@ -167,7 +169,7 @@ class Freq:
         match_obj = re.match("^([0-9]*)(month|mon|week|w|day|d|minute|min)$", freq)
         if match_obj is None:
             raise ValueError(
-                "freq format is not supported, the freq should be like (n)month/mon, (n)week/w, (n)day/d, (n)minute/min"
+                "不支持的频率格式，频率应类似于(n)month/mon, (n)week/w, (n)day/d, (n)minute/min"
             )
         _count = int(match_obj.group(1)) if match_obj.group(1) else 1
         _freq = match_obj.group(2)
@@ -186,32 +188,36 @@ class Freq:
     @staticmethod
     def get_timedelta(n: int, freq: str) -> pd.Timedelta:
         """
-        get pd.Timedeta object
+        获取pd.Timedelta对象
 
-        Parameters
+        参数
         ----------
         n : int
         freq : str
-            Typically, they are the return value of Freq.parse
+            通常，它们是Freq.parse的返回值
 
-        Returns
+        返回
         -------
         pd.Timedelta:
+            时间差对象
         """
         return pd.Timedelta(f"{n}{freq}")
 
     @staticmethod
     def get_min_delta(left_frq: str, right_freq: str):
-        """Calculate freq delta
+        """计算频率增量
 
-        Parameters
+        参数
         ----------
         left_frq: str
+            左侧频率
         right_freq: str
+            右侧频率
 
-        Returns
+        返回
         -------
-
+        int
+            分钟级别的频率增量
         """
         minutes_map = {
             Freq.NORM_FREQ_MINUTE: 1,
@@ -227,18 +233,20 @@ class Freq:
 
     @staticmethod
     def get_recent_freq(base_freq: Union[str, "Freq"], freq_list: List[Union[str, "Freq"]]) -> Optional["Freq"]:
-        """Get the closest freq to base_freq from freq_list
+        """从freq_list中获取最接近base_freq的频率
 
-        Parameters
+        参数
         ----------
         base_freq
+            基础频率
         freq_list
+            频率列表
 
-        Returns
+        返回
         -------
-        if the recent frequency is found
+        如果找到最近的频率
             Freq
-        else:
+        否则:
             None
         """
         base_freq = Freq(base_freq)
@@ -256,6 +264,7 @@ class Freq:
 
 
 def time_to_day_index(time_obj: Union[str, datetime], region: str = REG_CN):
+    """将时间对象转换为天索引"""
     if isinstance(time_obj, str):
         time_obj = datetime.strptime(time_obj, "%H:%M")
 
@@ -265,37 +274,37 @@ def time_to_day_index(time_obj: Union[str, datetime], region: str = REG_CN):
         elif CN_TIME[2] <= time_obj < CN_TIME[3]:
             return int((time_obj - CN_TIME[2]).total_seconds() / 60) + 120
         else:
-            raise ValueError(f"{time_obj} is not the opening time of the {region} stock market")
+            raise ValueError(f"{time_obj} 不是 {region} 股市的开盘时间")
     elif region == REG_US:
         if US_TIME[0] <= time_obj < US_TIME[1]:
             return int((time_obj - US_TIME[0]).total_seconds() / 60)
         else:
-            raise ValueError(f"{time_obj} is not the opening time of the {region} stock market")
+            raise ValueError(f"{time_obj} 不是 {region} 股市的开盘时间")
     elif region == REG_TW:
         if TW_TIME[0] <= time_obj < TW_TIME[1]:
             return int((time_obj - TW_TIME[0]).total_seconds() / 60)
         else:
-            raise ValueError(f"{time_obj} is not the opening time of the {region} stock market")
+            raise ValueError(f"{time_obj} 不是 {region} 股市的开盘时间")
     else:
-        raise ValueError(f"{region} is not supported")
+        raise ValueError(f"不支持区域 {region}")
 
 
 def get_day_min_idx_range(start: str, end: str, freq: str, region: str) -> Tuple[int, int]:
     """
-    get the min-bar index in a day for a time range (both left and right is closed) given a fixed frequency
-    Parameters
+    在给定固定频率的情况下，获取一天中某个时间范围（左右都关闭）的分钟柱索引
+    参数
     ----------
     start : str
-        e.g. "9:30"
+        例如 "9:30"
     end : str
-        e.g. "14:30"
+        例如 "14:30"
     freq : str
         "1min"
 
-    Returns
+    返回
     -------
     Tuple[int, int]:
-        The index of start and end in the calendar. Both left and right are **closed**
+        日历中开始和结束的索引。左右都**关闭**
     """
     start = pd.Timestamp(start).time()
     end = pd.Timestamp(end).time()
@@ -322,23 +331,23 @@ def concat_date_time(date_obj: date, time_obj: time) -> pd.Timestamp:
 
 def cal_sam_minute(x: pd.Timestamp, sam_minutes: int, region: str = REG_CN) -> pd.Timestamp:
     """
-    align the minute-level data to a down sampled calendar
+    将分钟级别数据与下采样日历对齐
 
-    e.g. align 10:38 to 10:35 in 5 minute-level(10:30 in 10 minute-level)
+    例如，在5分钟级别将10:38对齐到10:35（在10分钟级别对齐到10:30）
 
-    Parameters
+    参数
     ----------
     x : pd.Timestamp
-        datetime to be aligned
+        要对齐的日期时间
     sam_minutes : int
-        align to `sam_minutes` minute-level calendar
+        对齐到 `sam_minutes` 分钟级别日历
     region: str
-        Region, for example, "cn", "us"
+        区域，例如 "cn", "us"
 
-    Returns
+    返回
     -------
     pd.Timestamp:
-        the datetime after aligned
+        对齐后的日期时间
     """
     cal = get_min_cal(C.min_data_shift, region)[::sam_minutes]
     idx = bisect.bisect_right(cal, x.time()) - 1
@@ -348,22 +357,22 @@ def cal_sam_minute(x: pd.Timestamp, sam_minutes: int, region: str = REG_CN) -> p
 
 def epsilon_change(date_time: pd.Timestamp, direction: str = "backward") -> pd.Timestamp:
     """
-    change the time by infinitely small quantity.
+    按极小量改变时间。
 
 
-    Parameters
+    参数
     ----------
     date_time : pd.Timestamp
-        the original time
+        原始时间
     direction : str
-        the direction the time are going to
-        - "backward" for going to history
-        - "forward" for going to the future
+        时间变化的方向
+        - "backward" 表示回到过去
+        - "forward" 表示走向未来
 
-    Returns
+    返回
     -------
     pd.Timestamp:
-        the shifted time
+        偏移后的时间
     """
     if direction == "backward":
         return date_time - pd.Timedelta(seconds=1)

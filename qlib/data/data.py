@@ -42,8 +42,8 @@ from .ops import Operators  # pylint: disable=W0611  # noqa: F401
 
 class ProviderBackendMixin:
     """
-    这个辅助类旨在使基于存储后端的提供者更加方便。
-    如果提供者不依赖于后端存储，则无需继承此类。
+    此辅助类旨在使基于存储后端的提供程序更加方便。
+    如果提供程序不依赖于后端存储，则无需继承此类。
     """
 
     def get_default_backend(self):
@@ -65,7 +65,7 @@ class ProviderBackendMixin:
 
 
 class CalendarProvider(abc.ABC):
-    """日历提供者基类
+    """日历提供程序基类
 
     提供日历数据。
     """
@@ -199,7 +199,7 @@ class CalendarProvider(abc.ABC):
 
 
 class InstrumentProvider(abc.ABC):
-    """金融工具提供者基类
+    """金融工具提供程序基类
 
     提供金融工具数据。
     """
@@ -306,7 +306,7 @@ class InstrumentProvider(abc.ABC):
 
 
 class FeatureProvider(abc.ABC):
-    """特征提供者类
+    """特征提供程序类
 
     提供特征数据。
     """
@@ -337,7 +337,7 @@ class FeatureProvider(abc.ABC):
 
 
 class PITProvider(abc.ABC):
-    """切点（Point-In-Time）数据提供者基类"""
+    """即时（Point-In-Time）数据提供程序基类"""
     @abc.abstractmethod
     def period_feature(
         self,
@@ -383,7 +383,7 @@ class PITProvider(abc.ABC):
 
 
 class ExpressionProvider(abc.ABC):
-    """表达式提供者类
+    """表达式提供程序类
 
     提供表达式数据。
     """
@@ -447,7 +447,7 @@ class ExpressionProvider(abc.ABC):
 
 
 class DatasetProvider(abc.ABC):
-    """数据集提供者类
+    """数据集提供程序类
 
     提供数据集数据。
     """
@@ -638,7 +638,7 @@ class DatasetProvider(abc.ABC):
 
 
 class LocalCalendarProvider(CalendarProvider, ProviderBackendMixin):
-    """本地日历数据提供者类
+    """本地日历数据提供程序类
 
     从本地数据源提供日历数据。
     """
@@ -679,7 +679,7 @@ class LocalCalendarProvider(CalendarProvider, ProviderBackendMixin):
 
 
 class LocalInstrumentProvider(InstrumentProvider, ProviderBackendMixin):
-    """本地金融工具数据提供者类
+    """本地金融工具数据提供程序类
 
     从本地数据源提供金融工具数据。
     """
@@ -727,7 +727,7 @@ class LocalInstrumentProvider(InstrumentProvider, ProviderBackendMixin):
 
 
 class LocalFeatureProvider(FeatureProvider, ProviderBackendMixin):
-    """本地特征数据提供者类
+    """本地特征数据提供程序类
 
     从本地数据源提供特征数据。
     """
@@ -803,7 +803,7 @@ class LocalPITProvider(PITProvider):
 
 
 class LocalExpressionProvider(ExpressionProvider):
-    """本地表达式数据提供者类
+    """本地表达式数据提供程序类
 
     从本地数据源提供表达式数据。
     """
@@ -852,7 +852,7 @@ class LocalExpressionProvider(ExpressionProvider):
 
 
 class LocalDatasetProvider(DatasetProvider):
-    """本地数据集数据提供者类
+    """本地数据集数据提供程序类
 
     从本地数据源提供数据集数据。
     """
@@ -931,7 +931,7 @@ class LocalDatasetProvider(DatasetProvider):
 
 
 class ClientCalendarProvider(CalendarProvider):
-    """客户端日历数据提供者类
+    """客户端日历数据提供程序类
 
     作为客户端通过从服务器请求数据来提供日历数据。
     """
@@ -955,7 +955,7 @@ class ClientCalendarProvider(CalendarProvider):
 
 
 class ClientInstrumentProvider(InstrumentProvider):
-    """客户端金融工具数据提供者类
+    """客户端金融工具数据提供程序类
 
     作为客户端通过从服务器请求数据来提供金融工具数据。
     """
@@ -997,7 +997,7 @@ class ClientInstrumentProvider(InstrumentProvider):
 
 
 class ClientDatasetProvider(DatasetProvider):
-    """客户端数据集数据提供者类
+    """客户端数据集数据提供程序类
 
     作为客户端通过从服务器请求数据来提供数据集数据。
     """
@@ -1109,11 +1109,11 @@ class ClientDatasetProvider(DatasetProvider):
 
 
 class BaseProvider:
-    """本地提供者类
+    """本地提供程序类
     它是一组允许用户访问数据的接口。
-    因为 PITD 不对用户公开，所以它不包含在接口中。
+    由于 PITD 不对用户公开，因此不包含在接口中。
 
-    为了与旧的 qlib 提供者保持兼容。
+    为了与旧的 qlib 提供程序兼容。
     """
 
     def calendar(self, start_time=None, end_time=None, freq="day", future=False):
@@ -1192,18 +1192,18 @@ class LocalProvider(BaseProvider):
 
 
 class ClientProvider(BaseProvider):
-    """客户端提供者
+    """客户端提供程序
 
-    作为客户端从服务器请求数据。可以提出请求：
+    作为客户端从服务器请求数据。可以发出以下请求：
 
-        - 日历 : 直接响应日历列表
-        - 金融工具 (无过滤器): 直接响应金融工具列表/字典
-        - 金融工具 (有过滤器):  响应金融工具列表/字典
-        - 特征 : 响应缓存 URI
+        - 日历：直接响应日历列表
+        - 金融工具（无过滤器）：直接响应金融工具列表/字典
+        - 金融工具（有过滤器）：响应金融工具列表/字典
+        - 特征：响应缓存URI
 
     一般工作流程如下：
-    当用户使用客户端提供者提出请求时，客户端提供者将连接服务器并发送请求。客户端将开始等待响应。响应将立即做出，指示缓存是否可用。等待过程只有在客户端收到 `feature_available` 为 true 的响应时才会终止。
-    `BUG` : 每次我们请求特定数据时，我们都需要连接到服务器，等待响应然后断开连接。我们无法在一个连接内发出一系列请求。你可以参考 https://python-socketio.readthedocs.io/en/latest/client.html 获取 python-socketIO 客户端的文档。
+    当用户使用客户端提供程序发出请求时，客户端提供程序将连接服务器并发送请求。客户端将开始等待响应。响应将立即返回，指示缓存是否可用。只有当客户端收到 `feature_available` 为 true 的响应时，等待过程才会终止。
+    `BUG`：每次我们请求特定数据时，都需要连接到服务器，等待响应，然后断开连接。我们无法在单个连接中发出一系列请求。有关 python-socketIO 客户端的文档，请参阅 https://python-socketio.readthedocs.io/en/latest/client.html。
     """
 
     def __init__(self):

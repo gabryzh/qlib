@@ -42,7 +42,7 @@ class QlibCacheException(RuntimeError):
 
 
 class MemCacheUnit(abc.ABC):
-    """内存缓存单元的基类"""
+    """内存缓存单元基类"""
 
     def __init__(self, *args, **kwargs):
         self.size_limit = kwargs.pop("size_limit", 0)
@@ -57,7 +57,7 @@ class MemCacheUnit(abc.ABC):
 
         self.od.__setitem__(key, value)
 
-        # 将键移动到末尾，使其成为最新的
+        # 将键移动到末尾，表示它最近被使用过
         self.od.move_to_end(key)
 
         if self.limited:
@@ -128,7 +128,7 @@ class MemCacheLengthUnit(MemCacheUnit):
 
 
 class MemCacheSizeofUnit(MemCacheUnit):
-    """基于内存大小（sizeof）限制的内存缓存单元"""
+    """基于大小（sizeof）的内存缓存单元"""
     def __init__(self, size_limit=0):
         super().__init__(size_limit=size_limit)
 
@@ -144,7 +144,7 @@ class MemCache:
         参数
         ----------
         mem_cache_size_limit:
-            缓存最大大小。
+            内存缓存大小限制。
         limit_type:
             'length' 或 'sizeof'；'length'（调用 len()），'sizeof'（调用 sys.getsizeof()）。
         """
@@ -180,14 +180,14 @@ class MemCache:
 
 
 class MemCacheExpire:
-    """内存缓存过期管理"""
+    """内存缓存过期"""
     CACHE_EXPIRE = C.mem_cache_expire
 
     @staticmethod
     def set_cache(mem_cache, key, value):
         """设置缓存
 
-        :param mem_cache: MemCache 属性（'c'/'i'/'f'）。
+        :param mem_cache: MemCache的属性 ('c'/'i'/'f')。
         :param key: 缓存键。
         :param value: 缓存值。
         """
@@ -197,9 +197,9 @@ class MemCacheExpire:
     def get_cache(mem_cache, key):
         """获取内存缓存
 
-        :param mem_cache: MemCache 属性（'c'/'i'/'f'）。
+        :param mem_cache: MemCache的属性 ('c'/'i'/'f')。
         :param key: 缓存键。
-        :return: 缓存值；如果缓存不存在，则返回 None。
+        :return: 缓存值；如果缓存不存在则返回None。
         """
         value = None
         expire = False
@@ -301,7 +301,7 @@ class CacheUtils:
 
 
 class BaseProviderCache:
-    """提供程序缓存基类"""
+    """提供者缓存基类"""
 
     def __init__(self, provider):
         self.provider = provider
@@ -339,11 +339,11 @@ class BaseProviderCache:
 
 
 class ExpressionCache(BaseProviderCache):
-    """表达式缓存机制基类。
+    """表达式缓存机制的基类。
 
     此类用于包装具有自定义表达式缓存机制的表达式提供程序。
 
-    .. note:: 覆盖 `_uri` 和 `_expression` 方法以创建自己的表达式缓存机制。
+    .. note:: 覆盖 `_uri` 和 `_expression` 方法以创建您自己的表达式缓存机制。
     """
 
     def expression(self, instrument, field, start_time, end_time, freq):
@@ -357,44 +357,44 @@ class ExpressionCache(BaseProviderCache):
             return self.provider.expression(instrument, field, start_time, end_time, freq)
 
     def _uri(self, instrument, field, start_time, end_time, freq):
-        """获取表达式缓存文件 URI。
+        """获取表达式缓存文件的URI。
 
-        覆盖此方法以定义如何根据用户自己的缓存机制获取表达式缓存文件 URI。
+        覆盖此方法以根据您自己的缓存机制定义如何获取表达式缓存文件的URI。
         """
         raise NotImplementedError("实现此函数以匹配您自己的缓存机制")
 
     def _expression(self, instrument, field, start_time, end_time, freq):
         """使用缓存获取表达式数据。
 
-        覆盖此方法以定义如何根据用户自己的缓存机制获取表达式数据。
+        覆盖此方法以根据您自己的缓存机制定义如何获取表达式数据。
         """
         raise NotImplementedError("如果要使用表达式缓存，请实现此方法")
 
     def update(self, cache_uri: Union[str, Path], freq: str = "day"):
         """将表达式缓存更新到最新的日历。
 
-        覆盖此方法以定义如何根据用户自己的缓存机制更新表达式缓存。
+        覆盖此方法以根据您自己的缓存机制定义如何更新表达式缓存。
 
         参数
         ----------
         cache_uri : str or Path
-            表达式缓存文件的完整 URI（包括目录路径）。
+            表达式缓存文件的完整URI（包括目录路径）。
         freq : str
 
         返回
         -------
         int
-            0（更新成功）/ 1（无需更新）/ 2（更新失败）。
+            0（成功更新）/ 1（无需更新）/ 2（更新失败）。
         """
         raise NotImplementedError("如果要使表达式缓存保持最新，请实现此方法")
 
 
 class DatasetCache(BaseProviderCache):
-    """数据集缓存机制基类。
+    """数据集缓存机制的基类。
 
     此类用于包装具有自定义数据集缓存机制的数据集提供程序。
 
-    .. note:: 覆盖 `_uri` 和 `_dataset` 方法以创建自己的数据集缓存机制。
+    .. note:: 覆盖 `_uri` 和 `_dataset` 方法以创建您自己的数据集缓存机制。
     """
 
     HDF_KEY = "df"
@@ -406,7 +406,7 @@ class DatasetCache(BaseProviderCache):
 
         .. note:: 与数据集提供程序中的 `dataset` 方法具有相同的接口
 
-        .. note:: 服务器使用 redis_lock 确保不会触发读写冲突，但未考虑客户端读取器。
+        .. note:: 服务器使用 redis_lock 确保不会触发读写冲突，但没有考虑客户端读取器。
         """
         if disk_cache == 0:
             # 跳过缓存
@@ -414,7 +414,7 @@ class DatasetCache(BaseProviderCache):
                 instruments, fields, start_time, end_time, freq, inst_processors=inst_processors
             )
         else:
-            # 使用并替换缓存
+            # 使用和替换缓存
             try:
                 return self._dataset(
                     instruments, fields, start_time, end_time, freq, disk_cache, inst_processors=inst_processors
@@ -468,7 +468,7 @@ class DatasetCache(BaseProviderCache):
         返回
         -------
         int
-            0（更新成功）/ 1（无需更新）/ 2（更新失败）
+            0（成功更新）/ 1（无需更新）/ 2（更新失败）
         """
         raise NotImplementedError("如果要使表达式缓存保持最新，请实现此方法")
 
@@ -497,12 +497,12 @@ class DatasetCache(BaseProviderCache):
 
 
 class DiskExpressionCache(ExpressionCache):
-    """为服务器准备的磁盘表达式缓存机制。"""
+    """磁盘表达式缓存，为服务器准备。"""
 
     def __init__(self, provider, **kwargs):
         super(DiskExpressionCache, self).__init__(provider)
         self.r = get_redis_connection()
-        # remote==True 表示客户端正在使用此模块，将不允许写入行为。
+        # remote==True 表示客户端正在使用此模块，将不允许写操作。
         self.remote = kwargs.get("remote", False)
 
     def get_cache_dir(self, freq: str = None) -> Path:
@@ -534,7 +534,7 @@ class DiskExpressionCache(ExpressionCache):
 
             # 修改表达式缓存元文件
             try:
-                # FIXME: 多个读取器可能会导致访问次数错误
+                # FIXME: 多个读取器可能会导致访问计数不正确
                 if not self.remote:
                     CacheUtils.visit(cache_path)
                 series = read_bin(cache_path, start_index, end_index)
@@ -550,10 +550,10 @@ class DiskExpressionCache(ExpressionCache):
             _instrument_dir.mkdir(parents=True, exist_ok=True)
             if not isinstance(eval(parse_field(field)), Feature):
                 # 当表达式不是原始特征时
-                # 如果特征不是 Feature 实例，则生成表达式缓存
+                # 如果特征不是Feature实例，则生成表达式缓存
                 series = self.provider.expression(instrument, field, _calendar[0], _calendar[-1], freq)
                 if not series.empty:
-                    # 此表达式为空，我们不为其生成任何缓存。
+                    # 此表达式为空，我们不为其创建任何缓存。
                     with CacheUtils.writer_lock(self.r, f"{str(C.dpm.get_data_uri(freq))}:expression-{_cache_uri}"):
                         self.gen_expression_cache(
                             expression_data=series,
@@ -571,8 +571,8 @@ class DiskExpressionCache(ExpressionCache):
                 return self.provider.expression(instrument, field, start_time, end_time, freq)
 
     def gen_expression_cache(self, expression_data, cache_path, instrument, field, freq, last_update):
-        """使用二进制文件保存类似特征的数据。"""
-        # 确保在目录被删除时缓存仍能正常运行
+        """将特征类数据保存为二进制文件。"""
+        # 即使目录被删除，也要确保缓存仍然有效
         meta = {
             "info": {"instrument": instrument, "field": field, "freq": freq, "last_update": last_update},
             "meta": {"last_visit": time.time(), "visits": 1},
@@ -651,7 +651,7 @@ class DiskExpressionCache(ExpressionCache):
 
 
 class DiskDatasetCache(DatasetCache):
-    """为服务器准备的磁盘数据集缓存机制。"""
+    """磁盘数据集缓存，为服务器准备。"""
 
     def __init__(self, provider, **kwargs):
         super(DiskDatasetCache, self).__init__(provider)
@@ -703,15 +703,15 @@ class DiskDatasetCache(DatasetCache):
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=0, inst_processors=[]
     ):
         if disk_cache == 0:
-            # 在这种情况下，数据集缓存已配置但不会被使用。
+            # 在这种情况下，数据集缓存已配置但未使用。
             return self.provider.dataset(
                 instruments, fields, start_time, end_time, freq, inst_processors=inst_processors
             )
         # FIXME: 重采样后的缓存在再次读取并使用 end_time 截取时，会导致数据日期不完整
         if inst_processors:
             raise ValueError(
-                f"{self.__class__.__name__} 不支持 inst_processor。 "
-                f"请使用 `D.features(disk_cache=0)` 或 `qlib.init(dataset_cache=None)`"
+                f"{self.__class__.__name__}不支持inst_processor。 "
+                f"请使用`D.features(disk_cache=0)`或`qlib.init(dataset_cache=None)`"
             )
         _cache_uri = self._uri(
             instruments=instruments,
@@ -757,7 +757,7 @@ class DiskDatasetCache(DatasetCache):
         self, instruments, fields, start_time=None, end_time=None, freq="day", disk_cache=0, inst_processors=[]
     ):
         if disk_cache == 0:
-            # 在这种情况下，服务器只检查表达式缓存。
+            # 在这种情况下，服务器仅检查表达式缓存。
             # 客户端将自行加载缓存数据。
             from .data import LocalDatasetProvider  # pylint: disable=C0415
 
@@ -766,8 +766,8 @@ class DiskDatasetCache(DatasetCache):
         # FIXME: 重采样后的缓存在再次读取并使用 end_time 截取时，会导致数据日期不完整
         if inst_processors:
             raise ValueError(
-                f"{self.__class__.__name__} 不支持 inst_processor。 "
-                f"请使用 `D.features(disk_cache=0)` 或 `qlib.init(dataset_cache=None)`"
+                f"{self.__class__.__name__}不支持inst_processor。 "
+                f"请使用`D.features(disk_cache=0)`或`qlib.init(dataset_cache=None)`"
             )
         _cache_uri = self._uri(
             instruments=instruments,
@@ -1065,7 +1065,7 @@ class DiskDatasetCache(DatasetCache):
 
 
 class SimpleDatasetCache(DatasetCache):
-    """可本地或客户端使用的简单数据集缓存。"""
+    """简单数据集缓存，可在本地或客户端使用。"""
 
     def __init__(self, provider):
         super(SimpleDatasetCache, self).__init__(provider)
@@ -1076,7 +1076,7 @@ class SimpleDatasetCache(DatasetCache):
             raise
         self.logger.info(
             f"数据集缓存目录: {self.local_cache_path}, "
-            f"通过配置中的 local_cache_path 修改缓存目录"
+            f"通过在配置中设置 local_cache_path 来修改缓存目录"
         )
 
     def _uri(self, instruments, fields, start_time, end_time, freq, disk_cache=1, inst_processors=[], **kwargs):
@@ -1119,7 +1119,7 @@ class SimpleDatasetCache(DatasetCache):
 
 
 class DatasetURICache(DatasetCache):
-    """为服务器准备的数据集 URI 缓存机制。"""
+    """数据集URI缓存，为服务器准备。"""
 
     def _uri(self, instruments, fields, start_time, end_time, freq, disk_cache=1, inst_processors=[], **kwargs):
         return hash_args(*self.normalize_uri_args(instruments, fields, freq), disk_cache, inst_processors)
@@ -1181,12 +1181,12 @@ class DatasetURICache(DatasetCache):
 
 
 class CalendarCache(BaseProviderCache):
-    """日历缓存基类"""
+    """日历缓存基类。"""
     pass
 
 
 class MemoryCalendarCache(CalendarCache):
-    """内存日历缓存"""
+    """内存日历缓存。"""
     def calendar(self, start_time=None, end_time=None, freq="day", future=False):
         uri = self._uri(start_time, end_time, freq, future)
         result, expire = MemCacheExpire.get_cache(H["c"], uri)

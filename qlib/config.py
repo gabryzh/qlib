@@ -1,13 +1,13 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 """
-About the configs
-=================
+关于配置
+==========
 
-The config will be based on _default_config.
-Two modes are supported
-- client
-- server
+配置将基于 _default_config。
+支持两种模式
+- 客户端
+- 服务器
 
 """
 from __future__ import annotations
@@ -37,15 +37,15 @@ class MLflowSettings(BaseSettings):
 
 class QSettings(BaseSettings):
     """
-    Qlib's settings.
-    It tries to provide a default settings for most of Qlib's components.
-    But it would be a long journey to provide a comprehensive settings for all of Qlib's components.
+    Qlib的设置。
+    它试图为Qlib的大多数组件提供默认设置。
+    但是，为Qlib的所有组件提供全面的设置将是一个漫长的过程。
 
-    Here is some design guidelines:
-    - The priority of settings is
-        - Actively passed-in settings, like `qlib.init(provider_uri=...)`
-        - The default settings
-            - QSettings tries to provide default settings for most of Qlib's components.
+    以下是一些设计准则：
+    - 设置的优先级是
+        - 主动传入的设置，例如 `qlib.init(provider_uri=...)`
+        - 默认设置
+            - QSettings试图为Qlib的大多数组件提供默认设置。
     """
 
     mlflow: MLflowSettings = MLflowSettings()
@@ -61,8 +61,9 @@ QSETTINGS = QSettings()
 
 
 class Config:
+    """配置类"""
     def __init__(self, default_conf):
-        self.__dict__["_default_config"] = copy.deepcopy(default_conf)  # avoiding conflicts with __getattr__
+        self.__dict__["_default_config"] = copy.deepcopy(default_conf)  # 避免与__getattr__冲突
         self.reset()
 
     def __getitem__(self, key):
@@ -120,7 +121,7 @@ class Config:
         C.register()
 
 
-# pickle.dump protocol version: https://docs.python.org/3/library/pickle.html#data-stream-format
+# pickle.dump协议版本: https://docs.python.org/3/library/pickle.html#data-stream-format
 PROTOCOL_VERSION = 4
 
 NUM_USABLE_CPU = max(multiprocessing.cpu_count() - 2, 1)
@@ -132,7 +133,7 @@ DISK_EXPRESSION_CACHE = "DiskExpressionCache"
 DEPENDENCY_REDIS_CACHE = (DISK_DATASET_CACHE, DISK_EXPRESSION_CACHE)
 
 _default_config = {
-    # data provider config
+    # 数据提供者配置
     "calendar_provider": "LocalCalendarProvider",
     "instrument_provider": "LocalInstrumentProvider",
     "feature_provider": "LocalFeatureProvider",
@@ -140,50 +141,50 @@ _default_config = {
     "expression_provider": "LocalExpressionProvider",
     "dataset_provider": "LocalDatasetProvider",
     "provider": "LocalProvider",
-    # config it in qlib.init()
+    # 在qlib.init()中配置
     # "provider_uri" str or dict:
     #   # str
     #   "~/.qlib/stock_data/cn_data"
     #   # dict
     #   {"day": "~/.qlib/stock_data/cn_data", "1min": "~/.qlib/stock_data/cn_data_1min"}
-    # NOTE: provider_uri priority:
+    # 注意: provider_uri的优先级:
     #   1. backend_config: backend_obj["kwargs"]["provider_uri"]
     #   2. backend_config: backend_obj["kwargs"]["provider_uri_map"]
     #   3. qlib.init: provider_uri
     "provider_uri": "",
-    # cache
+    # 缓存
     "expression_cache": None,
     "calendar_cache": None,
-    # for simple dataset cache
+    # 简单数据集缓存
     "local_cache_path": None,
-    # kernels can be a fixed value or a callable function lie `def (freq: str) -> int`
-    # If the kernels are arctic_kernels, `min(NUM_USABLE_CPU, 30)` may be a good value
+    # 内核可以是固定值或可调用函数，如 `def (freq: str) -> int`
+    # 如果内核是arctic_kernels，`min(NUM_USABLE_CPU, 30)`可能是一个好值
     "kernels": NUM_USABLE_CPU,
-    # pickle.dump protocol version
+    # pickle.dump协议版本
     "dump_protocol_version": PROTOCOL_VERSION,
-    # How many tasks belong to one process. Recommend 1 for high-frequency data and None for daily data.
+    # 一个进程属于多少个任务。建议高频数据为1，日数据为None。
     "maxtasksperchild": None,
-    # If joblib_backend is None, use loky
+    # 如果joblib_backend为None，则使用loky
     "joblib_backend": "multiprocessing",
-    "default_disk_cache": 1,  # 0:skip/1:use
+    "default_disk_cache": 1,  # 0:跳过/1:使用
     "mem_cache_size_limit": 500,
     "mem_cache_limit_type": "length",
-    # memory cache expire second, only in used 'DatasetURICache' and 'client D.calendar'
-    # default 1 hour
+    # 内存缓存过期秒数，仅在'DatasetURICache'和'client D.calendar'中使用
+    # 默认1小时
     "mem_cache_expire": 60 * 60,
-    # cache dir name
+    # 缓存目录名称
     "dataset_cache_dir_name": "dataset_cache",
     "features_cache_dir_name": "features_cache",
     # redis
-    # in order to use cache
+    # 为了使用缓存
     "redis_host": "127.0.0.1",
     "redis_port": 6379,
     "redis_task_db": 1,
     "redis_password": None,
-    # This value can be reset via qlib.init
+    # 此值可以通过qlib.init重置
     "logging_level": logging.INFO,
-    # Global configuration of qlib log
-    # logging_level can control the logging level more finely
+    # qlib日志的全局配置
+    # logging_level可以更精细地控制日志级别
     "logging_config": {
         "version": 1,
         "formatters": {
@@ -205,16 +206,16 @@ _default_config = {
                 "filters": ["field_not_found"],
             }
         },
-        # Normally this should be set to `False` to avoid duplicated logging [1].
-        # However, due to bug in pytest, it requires log message to propagate to root logger to be captured by `caplog` [2].
+        # 通常这应该设置为 `False` 以避免重复记录 [1]。
+        # 但是，由于pytest中的错误，它要求日志消息传播到根记录器以被 `caplog` 捕获 [2]。
         # [1] https://github.com/microsoft/qlib/pull/1661
         # [2] https://github.com/pytest-dev/pytest/issues/3697
         "loggers": {"qlib": {"level": logging.DEBUG, "handlers": ["console"], "propagate": False}},
-        # To let qlib work with other packages, we shouldn't disable existing loggers.
-        # Note that this param is default to True according to the documentation of logging.
+        # 为了让qlib与其他包一起工作，我们不应该禁用现有的记录器。
+        # 注意，根据日志记录的文档，此参数默认为True。
         "disable_existing_loggers": False,
     },
-    # Default config for experiment manager
+    # 实验管理器的默认配置
     "exp_manager": {
         "class": "MLflowExpManager",
         "module_path": "qlib.workflow.expm",
@@ -235,52 +236,52 @@ _default_config = {
         "value": float("NAN"),
         "index": 0xFFFFFFFF,
     },
-    # Default config for MongoDB
+    # MongoDB的默认配置
     "mongo": {
         "task_url": "mongodb://localhost:27017/",
         "task_db_name": "default_task_db",
     },
-    # Shift minute for highfreq minute data, used in backtest
-    # if min_data_shift == 0, use default market time [9:30, 11:29, 1:00, 2:59]
-    # if min_data_shift != 0, use shifted market time [9:30, 11:29, 1:00, 2:59] - shift*minute
+    # 高频分钟数据的移位分钟，在回测中使用
+    # 如果min_data_shift == 0，使用默认市场时间 [9:30, 11:29, 1:00, 2:59]
+    # 如果min_data_shift != 0，使用移位的市场时间 [9:30, 11:29, 1:00, 2:59] - shift*minute
     "min_data_shift": 0,
 }
 
 MODE_CONF = {
     "server": {
-        # config it in qlib.init()
+        # 在qlib.init()中配置
         "provider_uri": "",
         # redis
         "redis_host": "127.0.0.1",
         "redis_port": 6379,
         "redis_task_db": 1,
-        # cache
+        # 缓存
         "expression_cache": DISK_EXPRESSION_CACHE,
         "dataset_cache": DISK_DATASET_CACHE,
         "local_cache_path": Path("~/.cache/qlib_simple_cache").expanduser().resolve(),
         "mount_path": None,
     },
     "client": {
-        # config it in user's own code
+        # 在用户自己的代码中配置
         "provider_uri": QSETTINGS.provider_uri,
-        # cache
-        # Using parameter 'remote' to announce the client is using server_cache, and the writing access will be disabled.
-        # Disable cache by default. Avoid introduce advanced features for beginners
+        # 缓存
+        # 使用参数'remote'来声明客户端正在使用服务器缓存，并且写访问将被禁用。
+        # 默认禁用缓存。避免为初学者引入高级功能
         "dataset_cache": None,
-        # SimpleDatasetCache directory
+        # SimpleDatasetCache目录
         "local_cache_path": Path("~/.cache/qlib_simple_cache").expanduser().resolve(),
-        # client config
+        # 客户端配置
         "mount_path": None,
-        "auto_mount": False,  # The nfs is already mounted on our server[auto_mount: False].
-        # The nfs should be auto-mounted by qlib on other
-        # serversS(such as PAI) [auto_mount:True]
+        "auto_mount": False,  # nfs已在我们的服务器上挂载[auto_mount: False]。
+        # nfs应该由qlib在其他服务器上自动挂载
+        # 服务器（例如PAI）[auto_mount:True]
         "timeout": 100,
         "logging_level": logging.INFO,
         "region": REG_CN,
-        # custom operator
-        # each element of custom_ops should be Type[ExpressionOps] or dict
-        # if element of custom_ops is Type[ExpressionOps], it represents the custom operator class
-        # if element of custom_ops is dict, it represents the config of custom operator and should include `class` and `module_path` keys.
+        # 自定义运算符
+        # custom_ops的每个元素都应该是Type[ExpressionOps]或dict
+        # 如果custom_ops的元素是Type[ExpressionOps]，它表示自定义运算符类
+        # 如果custom_ops的元素是dict，它表示自定义运算符的配置，并且应包括`class`和`module_path`键。
         "custom_ops": [],
     },
 }
@@ -312,7 +313,7 @@ _default_region_config = {
 
 
 class QlibConfig(Config):
-    # URI_TYPE
+    # URI类型
     LOCAL_URI = "local"
     NFS_URI = "nfs"
     DEFAULT_FREQ = "__DEFAULT_FREQ"
@@ -323,16 +324,16 @@ class QlibConfig(Config):
 
     class DataPathManager:
         """
-        Motivation:
-        - get the right path (e.g. data uri) for accessing data based on given information(e.g. provider_uri, mount_path and frequency)
-        - some helper functions to process uri.
+        动机:
+        - 根据给定信息（例如provider_uri、mount_path和frequency）获取访问数据的正确路径（例如数据uri）
+        - 一些处理uri的辅助函数。
         """
 
         def __init__(self, provider_uri: Union[str, Path, dict], mount_path: Union[str, Path, dict]):
             """
-            The relation of `provider_uri` and `mount_path`
-            - `mount_path` is used only if provider_uri is an NFS path
-            - otherwise, provider_uri will be used for accessing data
+            `provider_uri`和`mount_path`的关系
+            - `mount_path`仅在provider_uri是NFS路径时使用
+            - 否则，provider_uri将用于访问数据
             """
             self.provider_uri = provider_uri
             self.mount_path = mount_path
@@ -365,10 +366,10 @@ class QlibConfig(Config):
 
         def get_data_uri(self, freq: Optional[Union[str, Freq]] = None) -> Path:
             """
-            please refer DataPathManager's __init__ and class doc
+            请参考DataPathManager的__init__和类文档
             """
             if freq is not None:
-                freq = str(freq)  # converting Freq to string
+                freq = str(freq)  # 将Freq转换为字符串
             if freq is None or freq not in self.provider_uri:
                 freq = QlibConfig.DEFAULT_FREQ
             _provider_uri = self.provider_uri[freq]
@@ -376,20 +377,20 @@ class QlibConfig(Config):
                 return Path(_provider_uri)
             elif self.get_uri_type(_provider_uri) == QlibConfig.NFS_URI:
                 if "win" in platform.system().lower():
-                    # windows, mount_path is the drive
+                    # windows, mount_path是驱动器
                     _path = str(self.mount_path[freq])
                     return Path(f"{_path}:\\") if ":" not in _path else Path(_path)
                 return Path(self.mount_path[freq])
             else:
-                raise NotImplementedError(f"This type of uri is not supported")
+                raise NotImplementedError(f"不支持此类型的uri")
 
     def set_mode(self, mode):
-        # raise KeyError
+        # 引发KeyError
         self.update(MODE_CONF[mode])
-        # TODO: update region based on kwargs
+        # TODO: 根据kwargs更新区域
 
     def set_region(self, region):
-        # raise KeyError
+        # 引发KeyError
         self.update(_default_region_config[region])
 
     @staticmethod
@@ -401,17 +402,17 @@ class QlibConfig(Config):
         return self.DataPathManager(self["provider_uri"], self["mount_path"])
 
     def resolve_path(self):
-        # resolve path
+        # 解析路径
         _mount_path = self["mount_path"]
         _provider_uri = self.DataPathManager.format_provider_uri(self["provider_uri"])
         if not isinstance(_mount_path, dict):
             _mount_path = {_freq: _mount_path for _freq in _provider_uri.keys()}
 
-        # check provider_uri and mount_path
+        # 检查provider_uri和mount_path
         _miss_freq = set(_provider_uri.keys()) - set(_mount_path.keys())
-        assert len(_miss_freq) == 0, f"mount_path is missing freq: {_miss_freq}"
+        assert len(_miss_freq) == 0, f"mount_path缺少频率: {_miss_freq}"
 
-        # resolve
+        # 解析
         for _freq in _provider_uri.keys():
             # mount_path
             _mount_path[_freq] = (
@@ -422,21 +423,21 @@ class QlibConfig(Config):
 
     def set(self, default_conf: str = "client", **kwargs):
         """
-        configure qlib based on the input parameters
+        根据输入参数配置qlib
 
-        The configuration will act like a dictionary.
+        配置将像字典一样工作。
 
-        Normally, it literally is replaced the value according to the keys.
-        However, sometimes it is hard for users to set the config when the configuration is nested and complicated
+        通常，它会根据键逐字替换值。
+        但是，当配置嵌套且复杂时，用户有时很难设置配置。
 
-        So this API provides some special parameters for users to set the keys in a more convenient way.
-        - region:  REG_CN, REG_US
-            - several region-related config will be changed
+        因此，此API提供了一些特殊参数，供用户以更方便的方式设置键。
+        - region: REG_CN, REG_US
+            - 几个与区域相关的配置将被更改
 
-        Parameters
+        参数
         ----------
         default_conf : str
-            the default config template chosen by user: "server", "client"
+            用户选择的默认配置模板: "server", "client"
         """
         from .utils import set_log_with_config, get_module_logger, can_use_cache  # pylint: disable=C0415
 
@@ -462,21 +463,21 @@ class QlibConfig(Config):
         self.resolve_path()
 
         if not (self["expression_cache"] is None and self["dataset_cache"] is None):
-            # check redis
+            # 检查redis
             if not can_use_cache():
                 log_str = ""
-                # check expression cache
+                # 检查表达式缓存
                 if self.is_depend_redis(self["expression_cache"]):
                     log_str += self["expression_cache"]
                     self["expression_cache"] = None
-                # check dataset cache
+                # 检查数据集缓存
                 if self.is_depend_redis(self["dataset_cache"]):
                     log_str += f" and {self['dataset_cache']}" if log_str else self["dataset_cache"]
                     self["dataset_cache"] = None
                 if log_str:
                     logger.warning(
-                        f"redis connection failed(host={self['redis_host']} port={self['redis_port']}), "
-                        f"{log_str} will not be used!"
+                        f"redis连接失败(host={self['redis_host']} port={self['redis_port']}), "
+                        f"{log_str} 将不被使用！"
                     )
 
     def register(self):
@@ -488,14 +489,14 @@ class QlibConfig(Config):
 
         register_all_ops(self)
         register_all_wrappers(self)
-        # set up QlibRecorder
+        # 设置QlibRecorder
         exp_manager = init_instance_by_config(self["exp_manager"])
         qr = QlibRecorder(exp_manager)
         R.register(qr)
-        # clean up experiment when python program ends
+        # python程序结束时清理实验
         experiment_exit_handler()
 
-        # Supporting user reset qlib version (useful when user want to connect to qlib server with old version)
+        # 支持用户重置qlib版本（当用户希望连接到旧版本的qlib服务器时很有用）
         self.reset_qlib_version()
 
         self._registered = True
@@ -512,7 +513,7 @@ class QlibConfig(Config):
             # Using  __version__bak instead of __version__
 
     def get_kernels(self, freq: str):
-        """get number of processors given frequency"""
+        """给定频率获取处理器数量"""
         if isinstance(self["kernels"], Callable):
             return self["kernels"](freq)
         return self["kernels"]
@@ -522,5 +523,5 @@ class QlibConfig(Config):
         return self._registered
 
 
-# global config
+# 全局配置
 C = QlibConfig(_default_config)
