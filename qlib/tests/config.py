@@ -1,11 +1,14 @@
 #  Copyright (c) Microsoft Corporation.
 #  Licensed under the MIT License.
 
+# 定义市场和基准
 CSI300_MARKET = "csi300"
 CSI100_MARKET = "csi100"
 
+# 沪深300基准
 CSI300_BENCH = "SH000300"
 
+# 数据集类
 DATASET_ALPHA158_CLASS = "Alpha158"
 DATASET_ALPHA360_CLASS = "Alpha360"
 
@@ -14,6 +17,7 @@ DATASET_ALPHA360_CLASS = "Alpha360"
 ###################################
 
 
+# GBDT模型配置
 GBDT_MODEL = {
     "class": "LGBModel",
     "module_path": "qlib.contrib.model.gbdt",
@@ -31,12 +35,14 @@ GBDT_MODEL = {
 }
 
 
+# 信号分析记录器
 SA_RC = {
     "class": "SigAnaRecord",
     "module_path": "qlib.workflow.record_temp",
 }
 
 
+# 记录器配置
 RECORD_CONFIG = [
     {
         "class": "SignalRecord",
@@ -57,6 +63,7 @@ def get_data_handler_config(
     fit_end_time="<dataset.kwargs.segments.train.1>",
     instruments=CSI300_MARKET,
 ):
+    """获取数据处理器配置"""
     return {
         "start_time": start_time,
         "end_time": end_time,
@@ -73,6 +80,7 @@ def get_dataset_config(
     test=("2017-01-01", "2020-08-01"),
     handler_kwargs={"instruments": CSI300_MARKET},
 ):
+    """获取数据集配置"""
     return {
         "class": "DatasetH",
         "module_path": "qlib.data.dataset",
@@ -92,6 +100,7 @@ def get_dataset_config(
 
 
 def get_gbdt_task(dataset_kwargs={}, handler_kwargs={"instruments": CSI300_MARKET}):
+    """获取GBDT任务"""
     return {
         "model": GBDT_MODEL,
         "dataset": get_dataset_config(**dataset_kwargs, handler_kwargs=handler_kwargs),
@@ -99,6 +108,7 @@ def get_gbdt_task(dataset_kwargs={}, handler_kwargs={"instruments": CSI300_MARKE
 
 
 def get_record_lgb_config(dataset_kwargs={}, handler_kwargs={"instruments": CSI300_MARKET}):
+    """获取LGB记录器配置"""
     return {
         "model": {
             "class": "LGBModel",
@@ -110,6 +120,7 @@ def get_record_lgb_config(dataset_kwargs={}, handler_kwargs={"instruments": CSI3
 
 
 def get_record_xgboost_config(dataset_kwargs={}, handler_kwargs={"instruments": CSI300_MARKET}):
+    """获取XGBoost记录器配置"""
     return {
         "model": {
             "class": "XGBModel",
@@ -120,13 +131,18 @@ def get_record_xgboost_config(dataset_kwargs={}, handler_kwargs={"instruments": 
     }
 
 
+# CSI300数据集配置
 CSI300_DATASET_CONFIG = get_dataset_config(handler_kwargs={"instruments": CSI300_MARKET})
+# CSI300 GBDT任务
 CSI300_GBDT_TASK = get_gbdt_task(handler_kwargs={"instruments": CSI300_MARKET})
 
+# CSI100 XGBoost记录器任务配置
 CSI100_RECORD_XGBOOST_TASK_CONFIG = get_record_xgboost_config(handler_kwargs={"instruments": CSI100_MARKET})
+# CSI100 LGB记录器任务配置
 CSI100_RECORD_LGB_TASK_CONFIG = get_record_lgb_config(handler_kwargs={"instruments": CSI100_MARKET})
 
 # use for rolling_online_managment.py
+# 滚动处理程序配置
 ROLLING_HANDLER_CONFIG = {
     "start_time": "2013-01-01",
     "end_time": "2020-09-25",
@@ -134,19 +150,23 @@ ROLLING_HANDLER_CONFIG = {
     "fit_end_time": "2014-12-31",
     "instruments": CSI100_MARKET,
 }
+# 滚动数据集配置
 ROLLING_DATASET_CONFIG = {
     "train": ("2013-01-01", "2014-12-31"),
     "valid": ("2015-01-01", "2015-12-31"),
     "test": ("2016-01-01", "2020-07-10"),
 }
+# CSI100 XGBoost滚动记录器任务配置
 CSI100_RECORD_XGBOOST_TASK_CONFIG_ROLLING = get_record_xgboost_config(
     dataset_kwargs=ROLLING_DATASET_CONFIG, handler_kwargs=ROLLING_HANDLER_CONFIG
 )
+# CSI100 LGB滚动记录器任务配置
 CSI100_RECORD_LGB_TASK_CONFIG_ROLLING = get_record_lgb_config(
     dataset_kwargs=ROLLING_DATASET_CONFIG, handler_kwargs=ROLLING_HANDLER_CONFIG
 )
 
 # use for online_management_simulate.py
+# 在线处理程序配置
 ONLINE_HANDLER_CONFIG = {
     "start_time": "2018-01-01",
     "end_time": "2018-10-31",
@@ -154,14 +174,17 @@ ONLINE_HANDLER_CONFIG = {
     "fit_end_time": "2018-03-31",
     "instruments": CSI100_MARKET,
 }
+# 在线数据集配置
 ONLINE_DATASET_CONFIG = {
     "train": ("2018-01-01", "2018-03-31"),
     "valid": ("2018-04-01", "2018-05-31"),
     "test": ("2018-06-01", "2018-09-10"),
 }
+# CSI100 XGBoost在线记录器任务配置
 CSI100_RECORD_XGBOOST_TASK_CONFIG_ONLINE = get_record_xgboost_config(
     dataset_kwargs=ONLINE_DATASET_CONFIG, handler_kwargs=ONLINE_HANDLER_CONFIG
 )
+# CSI100 LGB在线记录器任务配置
 CSI100_RECORD_LGB_TASK_CONFIG_ONLINE = get_record_lgb_config(
     dataset_kwargs=ONLINE_DATASET_CONFIG, handler_kwargs=ONLINE_HANDLER_CONFIG
 )

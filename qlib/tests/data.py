@@ -16,6 +16,7 @@ from qlib.utils import exists_qlib_data
 
 
 class GetData:
+    """获取数据的类"""
     REMOTE_URL = "https://github.com/SunsetWolf/qlib_dataset/releases/download"
 
     def __init__(self, delete_zip_file=False):
@@ -24,33 +25,33 @@ class GetData:
         Parameters
         ----------
         delete_zip_file : bool, optional
-            Whether to delete the zip file, value from True or False, by default False
+            是否删除zip文件，值为True或False，默认为False
         """
         self.delete_zip_file = delete_zip_file
 
     def merge_remote_url(self, file_name: str):
         """
-        Generate download links.
+        生成下载链接。
 
         Parameters
         ----------
         file_name: str
-            The name of the file to be downloaded.
-            The file name can be accompanied by a version number, (e.g.: v2/qlib_data_simple_cn_1d_latest.zip),
-            if no version number is attached, it will be downloaded from v0 by default.
+            要下载的文件名。
+            文件名可以附带版本号，（例如：v2/qlib_data_simple_cn_1d_latest.zip），
+            如果没有附加版本号，默认从v0版本下载。
         """
         return f"{self.REMOTE_URL}/{file_name}" if "/" in file_name else f"{self.REMOTE_URL}/v0/{file_name}"
 
     def download(self, url: str, target_path: [Path, str]):
         """
-        Download a file from the specified url.
+        从指定url下载文件。
 
         Parameters
         ----------
         url: str
-            The url of the data.
+            数据的url。
         target_path: str
-            The location where the data is saved, including the file name.
+            数据保存的位置，包括文件名。
         """
         file_name = str(target_path).rsplit("/", maxsplit=1)[-1]
         resp = requests.get(url, stream=True, timeout=60)
@@ -71,17 +72,17 @@ class GetData:
 
     def download_data(self, file_name: str, target_dir: [Path, str], delete_old: bool = True):
         """
-        Download the specified file to the target folder.
+        将指定的文件下载到目标文件夹。
 
         Parameters
         ----------
         target_dir: str
-            data save directory
+            数据保存目录
         file_name: str
-            dataset name, needs to endwith .zip, value from [rl_data.zip, csv_data_cn.zip, ...]
-            may contain folder names, for example: v2/qlib_data_simple_cn_1d_latest.zip
+            数据集名称，需要以.zip结尾，值来自[rl_data.zip, csv_data_cn.zip, ...]
+            可能包含文件夹名称，例如：v2/qlib_data_simple_cn_1d_latest.zip
         delete_old: bool
-            delete an existing directory, by default True
+            删除现有目录，默认为True
 
         Examples
         ---------
@@ -97,7 +98,7 @@ class GetData:
         """
         target_dir = Path(target_dir).expanduser()
         target_dir.mkdir(exist_ok=True, parents=True)
-        # saved file name
+        # 保存的文件名
         _target_file_name = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + "_" + os.path.basename(file_name)
         target_path = target_dir.joinpath(_target_file_name)
 
@@ -160,24 +161,24 @@ class GetData:
         delete_old=True,
         exists_skip=False,
     ):
-        """download cn qlib data from remote
+        """从远程下载cn qlib数据
 
         Parameters
         ----------
         target_dir: str
-            data save directory
+            数据保存目录
         name: str
-            dataset name, value from [qlib_data, qlib_data_simple], by default qlib_data
+            数据集名称，值来自[qlib_data, qlib_data_simple]，默认为qlib_data
         version: str
-            data version, value from [v1, ...], by default None(use script to specify version)
+            数据版本，值来自[v1, ...]，默认为None(使用脚本指定版本)
         interval: str
-            data freq, value from [1d], by default 1d
+            数据频率，值来自[1d]，默认为1d
         region: str
-            data region, value from [cn, us], by default cn
+            数据区域，值来自[cn, us]，默认为cn
         delete_old: bool
-            delete an existing directory, by default True
+            删除现有目录，默认为True
         exists_skip: bool
-            exists skip, by default False
+            存在时跳过，默认为False
 
         Examples
         ---------

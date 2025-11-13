@@ -14,6 +14,7 @@ from qlib.data.storage import CalendarStorage, InstrumentStorage, FeatureStorage
 
 
 class TestAutoData(unittest.TestCase):
+    # a base class for tests that require automatically downloaded data.
     _setup_kwargs = {}
     provider_uri = "~/.qlib/qlib_data/cn_data_simple"  # target_dir
     provider_uri_1day = "~/.qlib/qlib_data/cn_data"  # target_dir
@@ -62,9 +63,10 @@ class TestAutoData(unittest.TestCase):
 
 
 class TestOperatorData(TestAutoData):
+    # 用于测试数据操作的基类
     @classmethod
     def setUpClass(cls, enable_1d_type="simple", enable_1min=False) -> None:
-        # use default data
+        # 使用默认数据
         super().setUpClass(enable_1d_type, enable_1min)
         nameDFilter = NameDFilter(name_rule_re="SH600110")
         instruments = D.instruments("csi300", filter_pipe=[nameDFilter])
@@ -159,15 +161,18 @@ id,symbol,datetime,interval,volume,open,high,low,close
 8601,1101,2022-02-25 00:00:00,day,14556.0,47.2,47.5,46.9,47.35
 """
 
+# 模拟CSV数据
 MOCK_DF = pd.read_csv(io.StringIO(MOCK_DATA), header=0, dtype={"symbol": str})
 
 
 class MockStorageBase:
+    # 模拟数据存储的基类
     def __init__(self, **kwargs):
         self.df = MOCK_DF
 
 
 class MockCalendarStorage(MockStorageBase, CalendarStorage):
+    # 模拟日历存储
     def __init__(self, **kwargs):
         super().__init__()
         self._data = sorted(self.df["datetime"].unique())
@@ -184,6 +189,7 @@ class MockCalendarStorage(MockStorageBase, CalendarStorage):
 
 
 class MockInstrumentStorage(MockStorageBase, InstrumentStorage):
+    # 模拟工具存储
     def __init__(self, **kwargs):
         super().__init__()
         instruments = {}
@@ -205,6 +211,7 @@ class MockInstrumentStorage(MockStorageBase, InstrumentStorage):
 
 
 class MockFeatureStorage(MockStorageBase, FeatureStorage):
+    # 模拟功能存储
     def __init__(self, instrument: str, field: str, freq: str, db_region: str = None, **kwargs):  # type: ignore
         super().__init__(instrument=instrument, field=field, freq=freq, db_region=db_region, **kwargs)
         self.field = field
@@ -236,7 +243,7 @@ class MockFeatureStorage(MockStorageBase, FeatureStorage):
     def end_index(self) -> Union[int, None]:
         if self._data.empty:
             return None
-        # The next  data appending index point will be  `end_index + 1`
+        # 下一个数据附加索引点将是 `end_index + 1`
         return self._data.index[-1]
 
     def __getitem__(self, i: Union[int, slice]) -> Union[Tuple[int, float], pd.Series]:
@@ -265,6 +272,7 @@ class MockFeatureStorage(MockStorageBase, FeatureStorage):
 
 
 class TestMockData(unittest.TestCase):
+    # 使用模拟数据和存储进行测试的类
     _setup_kwargs = {
         "calendar_provider": {
             "class": "LocalCalendarProvider",
