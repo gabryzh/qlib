@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from .pytorch_utils import count_parameters
+from .pytorch_utils import count_parameters, get_device
 from ...model.base import Model
 from ...data.dataset import DatasetH
 from ...data.dataset.handler import DataHandlerLP
@@ -35,8 +35,8 @@ class IGMTF(Model):
         the evaluation metric used in early stop
     optimizer : str
         optimizer name
-    GPU : str
-        the GPU ID(s) used for training
+    device : str
+        the device used for training
     """
 
     def __init__(
@@ -53,7 +53,7 @@ class IGMTF(Model):
         base_model="GRU",
         model_path=None,
         optimizer="adam",
-        GPU=0,
+        device="auto",
         seed=None,
         **kwargs,
     ):
@@ -74,7 +74,7 @@ class IGMTF(Model):
         self.loss = loss
         self.base_model = base_model
         self.model_path = model_path
-        self.device = torch.device("cuda:%d" % (GPU) if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.seed = seed
 
         self.logger.info(
@@ -91,7 +91,7 @@ class IGMTF(Model):
             "\nloss_type : {}"
             "\nbase_model : {}"
             "\nmodel_path : {}"
-            "\nvisible_GPU : {}"
+            "\ndevice : {}"
             "\nuse_GPU : {}"
             "\nseed : {}".format(
                 d_feat,
@@ -106,7 +106,7 @@ class IGMTF(Model):
                 loss,
                 base_model,
                 model_path,
-                GPU,
+                self.device,
                 self.use_gpu,
                 seed,
             )

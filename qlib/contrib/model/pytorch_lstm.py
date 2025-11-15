@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from .pytorch_utils import get_device
 from ...model.base import Model
 from ...data.dataset import DatasetH
 from ...data.dataset.handler import DataHandlerLP
@@ -32,8 +33,8 @@ class LSTM(Model):
         the evaluation metric used in early stop
     optimizer : str
         optimizer name
-    GPU : str
-        the GPU ID(s) used for training
+    device : str
+        the device used for training
     """
 
     def __init__(
@@ -49,7 +50,7 @@ class LSTM(Model):
         early_stop=20,
         loss="mse",
         optimizer="adam",
-        GPU=0,
+        device="auto",
         seed=None,
         **kwargs,
     ):
@@ -69,7 +70,7 @@ class LSTM(Model):
         self.early_stop = early_stop
         self.optimizer = optimizer.lower()
         self.loss = loss
-        self.device = torch.device("cuda:%d" % (GPU) if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.seed = seed
 
         self.logger.info(
@@ -85,7 +86,7 @@ class LSTM(Model):
             "\nearly_stop : {}"
             "\noptimizer : {}"
             "\nloss_type : {}"
-            "\nvisible_GPU : {}"
+            "\ndevice : {}"
             "\nuse_GPU : {}"
             "\nseed : {}".format(
                 d_feat,
@@ -99,7 +100,7 @@ class LSTM(Model):
                 early_stop,
                 optimizer.lower(),
                 loss,
-                GPU,
+                self.device,
                 self.use_gpu,
                 seed,
             )

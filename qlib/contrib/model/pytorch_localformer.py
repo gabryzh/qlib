@@ -42,7 +42,7 @@ class LocalformerModel(Model):
         optimizer="adam",
         reg=1e-3,
         n_jobs=10,
-        GPU=0,
+        device="auto",
         seed=None,
         **kwargs,
     ):
@@ -58,7 +58,7 @@ class LocalformerModel(Model):
         self.optimizer = optimizer.lower()
         self.loss = loss
         self.n_jobs = n_jobs
-        self.device = torch.device("cuda:%d" % GPU if torch.cuda.is_available() and GPU >= 0 else "cpu")
+        self.device = get_device(device)
         self.seed = seed
         self.logger = get_module_logger("TransformerModel")
         self.logger.info("Naive Transformer:" "\nbatch_size : {}" "\ndevice : {}".format(self.batch_size, self.device))
