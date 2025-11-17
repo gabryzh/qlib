@@ -89,7 +89,7 @@ def get_calendar_list(bench_code="CSI300") -> List[pd.Timestamp]:
             if bench_code.upper() == "ALL":
                 # 对于A股全市场，使用深交所API按月获取
                 @deco_retry
-                def _get_calendar_from_month(month):
+                def _get_calendar(month):
                     _cal = []
                     try:
                         # 请求深交所API
@@ -107,7 +107,7 @@ def get_calendar_list(bench_code="CSI300") -> List[pd.Timestamp]:
                 month_range = pd.date_range(start="2000-01", end=pd.Timestamp.now() + pd.Timedelta(days=31), freq="M")
                 calendar = []
                 for _m in month_range:
-                    cal = _get_calendar_from_month(_m.strftime("%Y-%m"))
+                    cal = _get_calendar(_m.strftime("%Y-%m"))
                     if cal:
                         calendar += cal
                 # 过滤掉未来的日期
