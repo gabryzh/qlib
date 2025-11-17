@@ -392,7 +392,7 @@ class YahooNormalize(BaseNormalize):
         columns = copy.deepcopy(YahooNormalize.COLUMNS)
         df = df.copy()
         df.set_index(date_field_name, inplace=True)
-        df.index = pd.to_datetime(df.index)
+        df.index = pd.to_datetime(df.index.str[:10]) # fix "2025-11-18 15:04:45+08:00" to "2025-11-18"
         df.index = df.index.tz_localize(None)
         df = df[~df.index.duplicated(keep="first")]
         if calendar_list is not None:
@@ -756,15 +756,8 @@ class Run(BaseRun):
     def default_base_dir(self) -> [Path, str]:
         return CUR_DIR
 
-    def download_data(
-        self,
-        max_collector_count=2,
-        delay=0.5,
-        start=None,
-        end=None,
-        check_data_length=None,
-        limit_nums=None,
-    ):
+    def download_data(self, max_collector_count=2, delay=0.5, start=None, end=None, check_data_length=None,
+                      limit_nums=None, **kwargs):
         """download data from Internet
 
         Parameters
@@ -925,14 +918,8 @@ class Run(BaseRun):
         """
         start = datetime.datetime.now().date()
         end = pd.Timestamp(start + pd.Timedelta(days=1)).date()
-        self.download_data(
-            max_collector_count,
-            delay,
-            start.strftime("%Y-%m-%d"),
-            end.strftime("%Y-%m-%d"),
-            check_data_length,
-            limit_nums,
-        )
+        self.download_data(max_collector_count, delay, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"),
+                           check_data_length, limit_nums)
 
     def update_data_to_bin(
         self,
