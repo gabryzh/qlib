@@ -80,10 +80,20 @@ class TushareCollector(BaseCollector):
             pass
         return dt
 
+    def get_instrument_list(self):
+        logger.info("get HS stock symbols......")
+        symbols = get_hs_stock_symbols()
+        logger.info(f"get {len(symbols)} symbols.")
+        return symbols
+
+    def normalize_symbol(self, symbol):
+        symbol_s = symbol.split(".")
+        symbol = f"sh{symbol_s[0]}" if symbol_s[-1] == "ss" else f"sz{symbol_s[0]}"
+        return symbol
+
     @property
-    @abc.abstractmethod
     def _timezone(self):
-        raise NotImplementedError("rewrite get_timezone")
+        return "Asia/Shanghai"
 
     @staticmethod
     @deco_retry
@@ -92,7 +102,7 @@ class TushareCollector(BaseCollector):
             _start_date = pd.Timestamp(start).strftime("%Y%m%d")
             _end_date = pd.Timestamp(end).strftime("%Y%m%d")
             freq = 'D'
-            df = pro.pro_bar(
+            df = ts.pro_bar(
                 ts_code=symbol,
                 start_date=_start_date,
                 end_date=_end_date,
@@ -114,7 +124,7 @@ class TushareCollector(BaseCollector):
                 _start_date = _start_datetime.strftime("%Y-%m-%d %H:%M:%S")
                 _end_date = _tmp_end.strftime("%Y-%m-%d %H:%M:%S")
 
-                df = pro.pro_bar(
+                df = ts.pro_bar(
                     ts_code=symbol,
                     start_date=_start_date,
                     end_date=_end_date,

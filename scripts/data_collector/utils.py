@@ -1,6 +1,6 @@
 #  Copyright (c) Microsoft Corporation.
 #  Licensed under the MIT License.
-
+import os
 import re
 import copy
 import importlib
@@ -258,7 +258,7 @@ def get_hs_stock_symbols() -> list:
         """
         try:
             import tushare as ts
-
+            ts.set_token(os.getenv('TUSHARE'))
             pro = ts.pro_api()
             data = pro.stock_basic(exchange="SSE,SZSE", list_status="L", fields="symbol")
             _symbols = data["symbol"].to_list()
